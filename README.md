@@ -1,21 +1,24 @@
 # UnityResolve.hpp
-> ### 待实现Unity类型
+> ### 提供的Unity类型
 > - [ ] Camera
 > - [ ] Transform
 > - [ ] GameObject
 > - [ ] Component
 > - [ ] LayerMask
 > - [ ] Rigidbody
-> - [ ] Vector4
-> - [ ] Quaternion
-> - [ ] Bounds
-> - [ ] Plane
-> - [ ] Ray
-> - [ ] Rect
-> - [ ] Color
-> - [ ] Matrix4x4
+> - [X] Vector4
+> - [X] Vector3
+> - [X] Vector2
+> - [X] Quaternion
+> - [X] Bounds
+> - [X] Plane
+> - [X] Ray
+> - [X] Rect
+> - [X] Color
+> - [X] Matrix4x4
 > - [ ] Array
-> - [ ] String
+> - [x] String
+> - [x] Object
 > - [ ] List
 > - More...
 
@@ -24,6 +27,9 @@
 > - [ ] 修改静态变量值
 > - [ ] 获取实例
 > - More...
+
+> [!NOTE]\
+> 有新的功能建议或者Bug可以提交Issues
 
 #### 初始化
 ``` c++
