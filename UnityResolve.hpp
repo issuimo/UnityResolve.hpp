@@ -20,6 +20,251 @@ public:
 		Mono
 	};
 
+	class UnityType {
+	public:
+		struct Vector3 {
+			float x, y, z;
+
+			Vector3() { x = y = z = 0.f; }
+
+			Vector3(const float f1, const float f2, const float f3) {
+				x = f1;
+				y = f2;
+				z = f3;
+			}
+
+			[[nodiscard]] auto Length() const -> float { return x * x + y * y + z * z; }
+
+			[[nodiscard]] auto Dot(const Vector3 b) const -> float { return x * b.x + y * b.y + z * b.z; }
+
+			[[nodiscard]] auto  Normalize() const -> Vector3 {
+				if (const float len = Length(); len > 0)
+					return Vector3(x / len, y / len, z / len);
+				return Vector3(x, y, z);
+			}
+
+			auto ToVectors(Vector3* m_pForward, Vector3* m_pRight, Vector3* m_pUp) const -> void {
+				constexpr float m_fDeg2Rad = static_cast<float>(3.1415926) / 180.F;
+
+				const float m_fSinX = sinf(x * m_fDeg2Rad);
+				const float m_fCosX = cosf(x * m_fDeg2Rad);
+
+				const float m_fSinY = sinf(y * m_fDeg2Rad);
+				const float m_fCosY = cosf(y * m_fDeg2Rad);
+
+				const float m_fSinZ = sinf(z * m_fDeg2Rad);
+				const float m_fCosZ = cosf(z * m_fDeg2Rad);
+
+				if (m_pForward) {
+					m_pForward->x = m_fCosX * m_fCosY;
+					m_pForward->y = -m_fSinX;
+					m_pForward->z = m_fCosX * m_fSinY;
+				}
+
+				if (m_pRight) {
+					m_pRight->x = -1.f * m_fSinZ * m_fSinX * m_fCosY + -1.f * m_fCosZ * -m_fSinY;
+					m_pRight->y = -1.f * m_fSinZ * m_fCosX;
+					m_pRight->z = -1.f * m_fSinZ * m_fSinX * m_fSinY + -1.f * m_fCosZ * m_fCosY;
+				}
+
+				if (m_pUp) {
+					m_pUp->x = m_fCosZ * m_fSinX * m_fCosY + -m_fSinZ * -m_fSinY;
+					m_pUp->y = m_fCosZ * m_fCosX;
+					m_pUp->z = m_fCosZ * m_fSinX * m_fSinY + -m_fSinZ * m_fCosY;
+				}
+			}
+
+			[[nodiscard]] auto Distance(const Vector3& event) const -> float {
+				const float dx = this->x - event.x;
+				const float dy = this->y - event.y;
+				const float dz = this->z - event.z;
+				return std::sqrt(dx * dx + dy * dy + dz * dz);
+			}
+		};
+
+		struct Vector2 {
+			float x, y;
+
+			Vector2() { x = y = 0.f; }
+
+			Vector2(const float f1, const float f2) {
+				x = f1;
+				y = f2;
+			}
+
+			[[nodiscard]] auto Distance(const Vector2& event) const -> float {
+				const float dx = this->x - event.x;
+				const float dy = this->y - event.y;
+				return std::sqrt(dx * dx + dy * dy);
+			}
+		};
+
+		struct Vector4 {
+			float x, y, z, w;
+
+			Vector4() { x = y = z = w = 0.F; }
+
+			Vector4(const float f1, const float f2, const float f3, const float f4) {
+				x = f1;
+				y = f2;
+				z = f3;
+				w = f4;
+			}
+		};
+
+		struct Quaternion {
+			float x, y, z, w;
+
+			Quaternion() { x = y = z = w = 0.F; }
+
+			Quaternion(const float f1, const float f2, const float f3, const float f4) {
+				x = f1;
+				y = f2;
+				z = f3;
+				w = f4;
+			}
+
+			auto Euler(float m_fX, float m_fY, float m_fZ) -> Quaternion {
+				constexpr float m_fDeg2Rad = static_cast<float>(3.1415926) / 180.F;
+
+				m_fX = m_fX * m_fDeg2Rad * 0.5F;
+				m_fY = m_fY * m_fDeg2Rad * 0.5F;
+				m_fZ = m_fZ * m_fDeg2Rad * 0.5F;
+
+				const float m_fSinX = sinf(m_fX);
+				const float m_fCosX = cosf(m_fX);
+
+				const float m_fSinY = sinf(m_fY);
+				const float m_fCosY = cosf(m_fY);
+
+				const float m_fSinZ = sinf(m_fZ);
+				const float m_fCosZ = cosf(m_fZ);
+
+				x = m_fCosY * m_fSinX * m_fCosZ + m_fSinY * m_fCosX * m_fSinZ;
+				y = m_fSinY * m_fCosX * m_fCosZ - m_fCosY * m_fSinX * m_fSinZ;
+				z = m_fCosY * m_fCosX * m_fSinZ - m_fSinY * m_fSinX * m_fCosZ;
+				w = m_fCosY * m_fCosX * m_fCosZ + m_fSinY * m_fSinX * m_fSinZ;
+
+				return *this;
+			}
+
+			auto Euler(const Vector3 m_vRot) -> Quaternion { return Euler(m_vRot.x, m_vRot.y, m_vRot.z); }
+
+			[[nodiscard]] auto ToEuler() const -> Vector3 {
+				Vector3 m_vEuler;
+
+				const float m_fDist = (x * x) + (y * y) + (z * z) + (w * w);
+
+				if (const float m_fTest = x * w - y * z; m_fTest > 0.4995F * m_fDist) {
+					m_vEuler.x = static_cast<float>(3.1415926) * 0.5F;
+					m_vEuler.y = 2.F * atan2f(y, x);
+					m_vEuler.z = 0.F;
+				}
+				else if (m_fTest < -0.4995F * m_fDist) {
+					m_vEuler.x = static_cast<float>(3.1415926) * -0.5F;
+					m_vEuler.y = -2.F * atan2f(y, x);
+					m_vEuler.z = 0.F;
+				}
+				else {
+					m_vEuler.x = asinf(2.F * (w * x - y * z));
+					m_vEuler.y = atan2f(2.F * w * y + 2.F * z * x, 1.F - 2.F * (x * x + y * y));
+					m_vEuler.z = atan2f(2.F * w * z + 2.F * x * y, 1.F - 2.F * (z * z + x * x));
+				}
+
+				constexpr float m_fRad2Deg = 180.F / static_cast<float>(3.1415926);
+				m_vEuler.x *= m_fRad2Deg;
+				m_vEuler.y *= m_fRad2Deg;
+				m_vEuler.z *= m_fRad2Deg;
+
+				return m_vEuler;
+			}
+		};
+
+		struct Bounds {
+			Vector3 m_vCenter;
+			Vector3 m_vExtents;
+		};
+
+		struct Plane {
+			Vector3 m_vNormal;
+			float   fDistance;
+		};
+
+		struct Ray {
+			Vector3 m_vOrigin;
+			Vector3 m_vDirection;
+		};
+
+		struct Rect {
+			float fX, fY;
+			float fWidth, fHeight;
+
+			Rect() { fX = fY = fWidth = fHeight = 0.f; }
+
+			Rect(const float f1, const float f2, const float f3, const float f4) {
+				fX = f1;
+				fY = f2;
+				fWidth = f3;
+				fHeight = f4;
+			}
+		};
+
+		struct Color {
+			float r, g, b, a;
+
+			Color() { r = g = b = a = 0.f; }
+
+			explicit Color(const float fRed = 0.f, const float fGreen = 0.f, const float fBlue = 0.f, const float fAlpha = 1.f) {
+				r = fRed;
+				g = fGreen;
+				b = fBlue;
+				a = fAlpha;
+			}
+		};
+
+		struct Matrix4x4 {
+			float m[4][4] = { 0 };
+
+			Matrix4x4() = default;
+
+			auto operator[](const int i) -> float* { return m[i]; }
+		};
+
+		struct Object {
+		protected:
+			union {
+				struct Class* klass{ nullptr };
+				struct VTable* vtable;
+			};
+
+			struct MonitorData* monitor{ nullptr };
+
+		public:
+			[[nodiscard]] auto GetClass() const -> Class* { return this->klass; }
+		};
+
+		struct String : Object {
+		protected:
+			int32_t m_stringLength{ 0 };
+			wchar_t m_firstChar{ 0 };
+
+		public:
+			[[nodiscard]] auto ToString() const -> std::string {
+				std::string sRet(static_cast<size_t>(m_stringLength) * 3 + 1, '\0');
+				WideCharToMultiByte(CP_UTF8,
+					0,
+					&m_firstChar,
+					m_stringLength,
+					&sRet[0],
+					static_cast<int>(sRet.size()),
+					nullptr,
+					nullptr);
+				return sRet;
+			}
+		};
+	private:
+	};
+
 	struct Assembly final {
 		void*                     address;
 		std::string               name;
@@ -300,7 +545,9 @@ public:
 		}
 	}
 
-	static auto DumpToFile(const std::string& file) -> void {}
+	static auto DumpToFile(const std::string& file) -> void {
+		
+	}
 
 	/**
 	 * \brief 调用dll函数
