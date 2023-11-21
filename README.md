@@ -58,3 +58,8 @@ method1->Invoke<int>(114, 514);
 const auto ptr = method2->Cast<void, int, bool>();
 ptr(114514, true);
 ```
+### DumpToFile (Il2cpp)
+``` C++
+UnityResolve::Init(GetModuleHandle(L"GameAssembly.dll"), UnityResolve::Mode::Il2cpp);
+UnityResolve::DumpToFile("./Dump.cs");
+```
