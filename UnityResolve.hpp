@@ -2,6 +2,7 @@
 #define UNITYRESOLVE_HPP
 #include <map>
 #include <format>
+#include <fstream>
 #include <string>
 #include <mutex>
 #include <windows.h>
@@ -546,7 +547,60 @@ public:
 	}
 
 	static auto DumpToFile(const std::string& file) -> void {
+		std::ofstream io(file, std::fstream::out);
 		
+		if (!io)
+			return;
+
+		io << \
+			"/*" << "\n" << \
+			R"(*  __  __                      __                  ____                                ___                       )" << "\n" << \
+			R"(* /\ \/\ \              __    /\ \__              /\  _`\                             /\_ \                      )" << "\n" << \
+			R"(* \ \ \ \ \     ___    /\_\   \ \ ,_\   __  __    \ \ \L\ \      __     ____    ___   \//\ \     __  __     __   )" << "\n" << \
+			R"(*  \ \ \ \ \  /' _ `\  \/\ \   \ \ \/  /\ \/\ \    \ \ ,  /    /'__`\  /',__\  / __`\   \ \ \   /\ \/\ \  /'__`\ )" << "\n" << \
+			R"(*   \ \ \_\ \ /\ \/\ \  \ \ \   \ \ \_ \ \ \_\ \    \ \ \\ \  /\  __/ /\__, `\/\ \L\ \   \_\ \_ \ \ \_/ |/\  __/ )" << "\n" << \
+			R"(*    \ \_____\\ \_\ \_\  \ \_\   \ \__\ \/`____ \    \ \_\ \_\\ \____\\/\____/\ \____/   /\____\ \ \___/ \ \____\)" << "\n" << \
+			R"(*     \/_____/ \/_/\/_/   \/_/    \/__/  `/___/> \    \/_/\/ / \/____/ \/___/  \/___/    \/____/  \/__/   \/____/)" << "\n" << \
+			R"(*                                           /\___/                                                               )" << "\n" << \
+			R"(*                                           \/__/                                                                )" << "\n" << \
+			R"(*================================================================================================================)" << "\n" << \
+			R"(*Unity Hack Library By 遂沫 2023/11/18-2023/11/21)" << "\n*/" << '\n';
+
+		for (const auto& [nAssembly, pAssembly] : assembly) {
+			io << std::format("Assembly: {}\n", nAssembly.empty() ? "" : nAssembly);
+			io << std::format("AssemblyFile: {} \n", pAssembly->file.empty() ? "" : pAssembly->file);
+			io << "{\n\n";
+			for (const auto& [nClass, pClass] : pAssembly->classes) {
+				io << std::format("\tnamespace: {}", pClass->namespaze.empty() ? "" : pClass->namespaze);
+				io << "\n";
+				io << std::format("\tclass {}{} ", nClass, pClass->parent.empty() ? "" : " :" + pClass->parent );
+				io << "{\n\n";
+				for (const auto& [nField, pField] : pClass->fields) {
+					io << std::format("\t\t{:+#06X} | {}{} {}\n", pField->offset, pField->static_field ? "static " : "", pField->type->name, nField);
+				}
+				io << "\n";
+				for (const auto& [nMethod, pMethod] : pClass->methods) {
+					io << std::format("\t\t[Flags: {:032b}] [ParamsCount: {:04d}] |RVA: {:+#010X}|\n", pMethod->flags, pMethod->args.size(), reinterpret_cast<std::uint64_t>(pMethod->function) - reinterpret_cast<std::uint64_t>(hmodule_));
+					io << std::format("\t\t{}{} {}(", pMethod->static_function ? "static" : "", pMethod->return_type->name, nMethod);
+					std::string params{};
+					for (const auto& [nArg, pArg] : pMethod->args) {
+						params += std::format("{} {}, ", pArg->name, nArg);
+					}
+					if (!params.empty()) {
+						params.pop_back();
+						params.pop_back();
+					}
+					io << (params.empty() ? "" : params) << ");\n";
+				}
+				io << "\t}\n\n";
+			}
+			io << "}\n\n";
+		}
+
+		io << '\n';
+		io.close();
+		SetFileAttributesA((file).c_str(), FILE_ATTRIBUTE_READONLY);
+		SetFileAttributesA((file).c_str(), FILE_ATTRIBUTE_SYSTEM);
 	}
 
 	/**
