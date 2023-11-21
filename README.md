@@ -1,5 +1,5 @@
 # UnityResolve.hpp
-> ### 提供的Unity类型
+> ### 提供的类型
 > - [ ] Camera
 > - [ ] Transform
 > - [ ] GameObject
