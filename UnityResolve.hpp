@@ -564,7 +564,7 @@ public:
 			R"(*                                           /\___/                                                               )" << "\n" << \
 			R"(*                                           \/__/                                                                )" << "\n" << \
 			R"(*================================================================================================================)" << "\n" << \
-			R"(*Unity Hack Library By 遂沫 2023/11/18-2023/11/21)" << "\n*/" << '\n';
+			R"(*UnityResolve Library By 遂沫 2023/11/18-2023/11/21)" << "\n*/" << '\n';
 
 		for (const auto& [nAssembly, pAssembly] : assembly) {
 			io << std::format("Assembly: {}\n", nAssembly.empty() ? "" : nAssembly);
