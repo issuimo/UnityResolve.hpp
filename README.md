@@ -43,6 +43,7 @@ UnityResolve::Init(GetModuleHandle(L"GameAssembly.dll | mono.dll"), UnityResolve
 > Parameter 2: Usage mode
 > > Mode::Il2cpp \
 > > Mode::Mono
+> > Mode::Auto
 
 #### 获取函数地址及调用 (Obtaining Function Addresses and Invoking)
 ``` c++
