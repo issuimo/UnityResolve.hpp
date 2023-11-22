@@ -16,9 +16,10 @@ class UnityResolve final {
 	struct Method;
 
 public:
-	enum class Mode {
+	enum class Mode : char {
 		Il2cpp,
-		Mono
+		Mono,
+		Auto
 	};
 
 	class UnityType {
@@ -352,9 +353,22 @@ public:
 		}
 	};
 
-	static auto Init(const HMODULE hmodule, const Mode mode = Mode::Il2cpp) -> void {
-		mode_    = mode;
+	static auto Init(const HMODULE hmodule, const Mode mode = Mode::Auto) -> void {
+		mode_ = mode;
 		hmodule_ = hmodule;
+
+		if (mode == Mode::Auto) {
+			char path[0xFF];
+			GetModuleFileNameA(hmodule, path, 0xFF);
+			const std::string file{ path };
+			auto ret = file.substr(0, file.find_first_of('\\') + 1);
+			if (file.find("mono") != std::string::npos) {
+				mode_ = Mode::Mono;
+			}
+			else {
+				mode_ = Mode::Il2cpp;
+			}
+		}
 
 		if (mode_ == Mode::Il2cpp) {
 			const void* domain{Invoke<void*>("il2cpp_domain_get")};
@@ -564,7 +578,7 @@ public:
 			R"(*                                           /\___/                                                               )" << "\n" << \
 			R"(*                                           \/__/                                                                )" << "\n" << \
 			R"(*================================================================================================================)" << "\n" << \
-			R"(*UnityResolve Library By 遂沫 2023/11/18-2023/11/21)" << "\n*/" << '\n';
+			R"(*UnityResolve Library By 遂沫 2023/11/18-2023/11/21)" << " Mode:" << (static_cast<char>(mode_) ? "Mono" : "Il2cpp") << "\n*/" << '\n';
 
 		for (const auto& [nAssembly, pAssembly] : assembly) {
 			io << std::format("Assembly: {}\n", nAssembly.empty() ? "" : nAssembly);
