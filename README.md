@@ -35,7 +35,7 @@
 
 #### 初始化 (Initialization)
 ``` c++
-UnityResolve::Init(GetModuleHandle(L"GameAssembly.dll"), UnityResolve::Mode::Il2cpp);
+UnityResolve::Init(GetModuleHandle(L"GameAssembly.dll | mono.dll"), UnityResolve::Mode::Auto);
 ```
 > 参数1: dll句柄 \
 > Parameter 1: DLL handle \
@@ -65,8 +65,12 @@ method1->Invoke<int>(114, 514);
 const auto ptr = method2->Cast<void, int, bool>();
 ptr(114514, true);
 ```
-### DumpToFile (Il2cpp)
+### 转存储到文件 (DumpToFile)
 ``` C++
-UnityResolve::Init(GetModuleHandle(L"GameAssembly.dll"), UnityResolve::Mode::Il2cpp);
 UnityResolve::DumpToFile("./Dump.cs");
+```
+### 创建C#字符串 (Create C# String)
+``` c++
+auto str = UnityResolve::UnityType::String("string | 字符串");
+std::string cppStr = str.ToString();
 ```
