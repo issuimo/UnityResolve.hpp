@@ -364,7 +364,7 @@ public:
 
 			auto GetEntry() -> Entry* { return static_cast<Entry*>(pEntries->GetData()); }
 
-			auto GetKeyByIndex(int iIndex) -> TKey {
+			auto GetKeyByIndex(const int iIndex) -> TKey {
 				TKey tKey = {0};
 
 				Entry* pEntry = GetEntry();
@@ -374,7 +374,7 @@ public:
 				return tKey;
 			}
 
-			auto GetValueByIndex(int iIndex) -> TValue {
+			auto GetValueByIndex(const int iIndex) -> TValue {
 				TValue tValue = {0};
 
 				Entry* pEntry = GetEntry();
@@ -384,13 +384,17 @@ public:
 				return tValue;
 			}
 
-			auto GetValueByKey(TKey tKey) -> TValue {
+			auto GetValueByKey(const TKey tKey) -> TValue {
 				TValue tValue = {0};
 				for (int i = 0; i < iCount; i++) {
 					if (GetEntry()[i].m_tKey == tKey)
 						tValue = GetEntry()[i].m_tValue;
 				}
 				return tValue;
+			}
+
+			auto operator[](const TKey tKey) const -> TValue {
+				return GetValueByKey(tKey);
 			}
 		};
 
@@ -760,7 +764,7 @@ public:
 																	   int   iname = 0;
 																	   do {
 																		   if ((mType = Invoke<void*>(
-																			   "mono_signature_get_params",
+																		   "mono_signature_get_params",
 																			   signature,
 																			   &mIter))) {
 																			   int t_size{};
