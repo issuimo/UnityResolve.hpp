@@ -16,10 +16,11 @@
 > - [X] Rect
 > - [X] Color
 > - [X] Matrix4x4
-> - [ ] Array
+> - [X] Array
 > - [x] String
 > - [x] Object
-> - [ ] List
+> - [X] List
+> - [X] Dictionary
 > - More...
 
 > ### 功能 (Function)
