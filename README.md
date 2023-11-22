@@ -71,6 +71,6 @@ UnityResolve::DumpToFile("./Dump.cs");
 ```
 ### 创建C#字符串 (Create C# String)
 ``` c++
-auto str = UnityResolve::UnityType::String("string | 字符串");
+auto str = UnityResolve::UnityType::String::New("string | 字符串");
 std::string cppStr = str.ToString();
 ```
