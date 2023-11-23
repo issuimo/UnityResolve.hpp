@@ -48,9 +48,7 @@ UnityResolve::Init(GetModuleHandle(L"GameAssembly.dll | mono.dll"), UnityResolve
 ``` c++
 const auto classes = UnityResolve::assembly["assembly name | 程序集名称"]->classes;
 
-// 我不知道为什么在这里使用[]会提示没有重载 std::map<std::string, Class*> classes
-// I don't understand why using [] here prompts that there is no overload for std::map<std::string, Class*> classes
-auto klass = classes.at("class name | 类名称");
+auto klass = classes["class name | 类名称"];
 
 const auto field = klass->Get<UnityResolve::Field>("Field | 变量名");
 const auto method = klass->Get<UnityResolve::Method>("Method | 函数名");
