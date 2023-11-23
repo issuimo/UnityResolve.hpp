@@ -1,5 +1,6 @@
 ﻿#ifndef UNITYRESOLVE_HPP
 #define UNITYRESOLVE_HPP
+#undef GetObject
 #include <map>
 #include <format>
 #include <fstream>
@@ -16,6 +17,7 @@ public:
 	struct Class;
 	struct Field;
 	struct Method;
+	class UnityType;
 
 	enum class Mode : char {
 		Il2cpp,
@@ -34,6 +36,13 @@ public:
 		void*       address;
 		std::string name;
 		int         size;
+
+		[[nodiscard]] auto GetObject() const -> void* {
+			if (mode_ == Mode::Il2cpp) {
+				return Invoke<void*>("il2cpp_type_get_object", address);
+			}
+			return Invoke<void*>("mono_type_get_object", pDomain, address);
+		}
 	};
 
 	struct Class final {
@@ -53,13 +62,35 @@ public:
 			return nullptr;
 		}
 
-		auto GetType() const -> Type {
+		[[nodiscard]] auto GetType() const -> Type {
 			if (mode_ == Mode::Il2cpp) {
 				void* pUType = Invoke<void*, void*>("il2cpp_class_get_type", classinfo);
 				return { pUType, name, -1 };
 			}
 			void* pUType = Invoke<void*, void*>("mono_class_get_type", classinfo);
 			return { pUType, name, -1 };
+		}
+
+		/**
+		 * \brief 获取类所有实例
+		 * \tparam T 返回数组类型
+		 * \param type 类
+		 * \return 返回实例指针数组
+		 */
+		template<typename T>
+		auto FindObjectsByType() -> std::vector<T> {
+			static Method::MethodPointer<UnityType::Array<T>*, void*> pMethod = 
+			Method::FindMethod("Object", "FindObjectsOfType", "UnityEngine", "UnityEngine.CoreModule", 1)->
+			Cast<UnityType::Array<T>*, void*>();
+			if (pMethod) {
+				std::vector<T> rs{};
+				auto array = pMethod(this->GetType().GetObject());
+				rs.reserve(array->max_length);
+				for (int i = 0; i < array->max_length; i++)
+					rs.push_back(array->At(i));
+				return rs;
+			}
+			throw std::logic_error("nullptr");
 		}
 	};
 
@@ -74,7 +105,7 @@ public:
 
 		template<typename T>
 		auto SetValue(T* value) const -> void {
-			if (!static_field)
+			if (!static_field)   
 				return;
 
 			if (mode_ == Mode::Il2cpp) {
@@ -137,7 +168,7 @@ public:
 							   const std::string& name,
 							   const std::string& namespaze,
 							   const std::string& assembly_name,
-							   const size_t       args) -> const Method* {
+							   const size_t       args) -> Method* {
 			const auto vklass = assembly[assembly_name]->classes.at(klass);
 			if (const auto vmethod = vklass->namespaze == namespaze ? vklass->methods[name] : nullptr; vmethod &&
 				vmethod->args.size() == args)
@@ -327,8 +358,8 @@ public:
 			Invoke<void*>("mono_thread_attach", pDomain);
 			Invoke<void*>("mono_jit_thread_attach", pDomain);
 
-			Invoke<void*, void(*)(void* ptr, std::map<std::string, const Assembly*>&), std::map<std::string, const Assembly*>&>("mono_assembly_foreach",
-													   [](void* ptr, std::map<std::string, const Assembly*>& v) {
+			Invoke<void*, void(*)(void* ptr, std::map<std::string, Assembly*>&), std::map<std::string, Assembly*>&>("mono_assembly_foreach",
+													   [](void* ptr, std::map<std::string, Assembly*>& v) {
 														   if (ptr == nullptr)
 															   return;
 
@@ -592,7 +623,7 @@ public:
 		throw std::logic_error("Not find function");
 	}
 
-	inline static std::map<std::string, const Assembly*> assembly;
+	inline static std::map<std::string, Assembly*> assembly;
 
 
 	class UnityType {
@@ -861,11 +892,11 @@ public:
 			std::uintptr_t             max_length{ 0 };
 			__declspec(align(8)) Type* vector[32]{};
 
-			auto operator[](const int i) -> Type* { return vector[i]; }
+			auto operator[](const int i) -> Type { return vector[i]; }
 
 			auto GetData() -> uintptr_t { return reinterpret_cast<uintptr_t>(&vector); }
 
-			auto At(unsigned int m_uIndex) -> Type& { return operator[](m_uIndex); }
+			auto At(unsigned int m_uIndex) -> Type { return operator[](m_uIndex); }
 
 			auto Insert(Type* m_pArray, uintptr_t m_uSize, uintptr_t m_uIndex = 0) -> void {
 				if ((m_uSize + m_uIndex) >= max_length) {
@@ -999,25 +1030,6 @@ public:
 
 		struct Rigidbody {};
 
-
-		/**
-		 * \brief 获取类所有实例
-		 * \tparam T 返回数组类型
-		 * \param type 类
-		 * \return 返回实例指针数组
-		 */
-		template<typename T>
-		static auto FindObjectsByType(Class type) -> std::vector<T*> {
-			static Method::MethodPointer<Array<T>*, void*> pMethod = Method::FindMethod("Object", "FindObjectsOfType", "UnityEngine", "UnityEngine.CoreModule", 1)->Cast<Array<T>*, void*>();
-			if (pMethod) {
-				std::vector<T*> rs{};
-				auto array = pMethod(type.GetType().address);
-				for (int i = 0; i < array->max_length; i++) {
-					rs.push_back(array->At(i));
-				}
-			}
-			throw std::logic_error("nullptr");
-		}
 	private:
 		template<typename Return, typename... Args>
 		static auto Invoke(const void* address, Args... args) -> Return {
