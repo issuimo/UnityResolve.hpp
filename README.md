@@ -58,7 +58,7 @@ const auto functionPtr = method->function;
 const auto method1 = klass->methods["method name1 | 函数名称1"];
 const auto method2 = klass->methods["method name2 | 函数名称2"];
 
-method1->Invoke<int>(114, 514);
+method1->Invoke<int>(114, 514, "114514");
 
 const auto ptr = method2->Cast<void, int, bool>();
 ptr(114514, true);
