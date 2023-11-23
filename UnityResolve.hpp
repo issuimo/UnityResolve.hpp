@@ -11,411 +11,6 @@
 
 class UnityResolve final {
 public:
-	class UnityType {
-	public:
-		struct Vector3 {
-			float x, y, z;
-
-			Vector3() { x = y = z = 0.f; }
-
-			Vector3(const float f1, const float f2, const float f3) {
-				x = f1;
-				y = f2;
-				z = f3;
-			}
-
-			[[nodiscard]] auto Length() const -> float { return x * x + y * y + z * z; }
-
-			[[nodiscard]] auto Dot(const Vector3 b) const -> float { return x * b.x + y * b.y + z * b.z; }
-
-			[[nodiscard]] auto  Normalize() const -> Vector3 {
-				if (const float len = Length(); len > 0)
-					return Vector3(x / len, y / len, z / len);
-				return Vector3(x, y, z);
-			}
-
-			auto ToVectors(Vector3* m_pForward, Vector3* m_pRight, Vector3* m_pUp) const -> void {
-				constexpr float m_fDeg2Rad = static_cast<float>(3.1415926) / 180.F;
-
-				const float m_fSinX = sinf(x * m_fDeg2Rad);
-				const float m_fCosX = cosf(x * m_fDeg2Rad);
-
-				const float m_fSinY = sinf(y * m_fDeg2Rad);
-				const float m_fCosY = cosf(y * m_fDeg2Rad);
-
-				const float m_fSinZ = sinf(z * m_fDeg2Rad);
-				const float m_fCosZ = cosf(z * m_fDeg2Rad);
-
-				if (m_pForward) {
-					m_pForward->x = m_fCosX * m_fCosY;
-					m_pForward->y = -m_fSinX;
-					m_pForward->z = m_fCosX * m_fSinY;
-				}
-
-				if (m_pRight) {
-					m_pRight->x = -1.f * m_fSinZ * m_fSinX * m_fCosY + -1.f * m_fCosZ * -m_fSinY;
-					m_pRight->y = -1.f * m_fSinZ * m_fCosX;
-					m_pRight->z = -1.f * m_fSinZ * m_fSinX * m_fSinY + -1.f * m_fCosZ * m_fCosY;
-				}
-
-				if (m_pUp) {
-					m_pUp->x = m_fCosZ * m_fSinX * m_fCosY + -m_fSinZ * -m_fSinY;
-					m_pUp->y = m_fCosZ * m_fCosX;
-					m_pUp->z = m_fCosZ * m_fSinX * m_fSinY + -m_fSinZ * m_fCosY;
-				}
-			}
-
-			[[nodiscard]] auto Distance(const Vector3& event) const -> float {
-				const float dx = this->x - event.x;
-				const float dy = this->y - event.y;
-				const float dz = this->z - event.z;
-				return std::sqrt(dx * dx + dy * dy + dz * dz);
-			}
-		};
-
-		struct Vector2 {
-			float x, y;
-
-			Vector2() { x = y = 0.f; }
-
-			Vector2(const float f1, const float f2) {
-				x = f1;
-				y = f2;
-			}
-
-			[[nodiscard]] auto Distance(const Vector2& event) const -> float {
-				const float dx = this->x - event.x;
-				const float dy = this->y - event.y;
-				return std::sqrt(dx * dx + dy * dy);
-			}
-		};
-
-		struct Vector4 {
-			float x, y, z, w;
-
-			Vector4() { x = y = z = w = 0.F; }
-
-			Vector4(const float f1, const float f2, const float f3, const float f4) {
-				x = f1;
-				y = f2;
-				z = f3;
-				w = f4;
-			}
-		};
-
-		struct Quaternion {
-			float x, y, z, w;
-
-			Quaternion() { x = y = z = w = 0.F; }
-
-			Quaternion(const float f1, const float f2, const float f3, const float f4) {
-				x = f1;
-				y = f2;
-				z = f3;
-				w = f4;
-			}
-
-			auto Euler(float m_fX, float m_fY, float m_fZ) -> Quaternion {
-				constexpr float m_fDeg2Rad = static_cast<float>(3.1415926) / 180.F;
-
-				m_fX = m_fX * m_fDeg2Rad * 0.5F;
-				m_fY = m_fY * m_fDeg2Rad * 0.5F;
-				m_fZ = m_fZ * m_fDeg2Rad * 0.5F;
-
-				const float m_fSinX = sinf(m_fX);
-				const float m_fCosX = cosf(m_fX);
-
-				const float m_fSinY = sinf(m_fY);
-				const float m_fCosY = cosf(m_fY);
-
-				const float m_fSinZ = sinf(m_fZ);
-				const float m_fCosZ = cosf(m_fZ);
-
-				x = m_fCosY * m_fSinX * m_fCosZ + m_fSinY * m_fCosX * m_fSinZ;
-				y = m_fSinY * m_fCosX * m_fCosZ - m_fCosY * m_fSinX * m_fSinZ;
-				z = m_fCosY * m_fCosX * m_fSinZ - m_fSinY * m_fSinX * m_fCosZ;
-				w = m_fCosY * m_fCosX * m_fCosZ + m_fSinY * m_fSinX * m_fSinZ;
-
-				return *this;
-			}
-
-			auto Euler(const Vector3 m_vRot) -> Quaternion { return Euler(m_vRot.x, m_vRot.y, m_vRot.z); }
-
-			[[nodiscard]] auto ToEuler() const -> Vector3 {
-				Vector3 m_vEuler;
-
-				const float m_fDist = (x * x) + (y * y) + (z * z) + (w * w);
-
-				if (const float m_fTest = x * w - y * z; m_fTest > 0.4995F * m_fDist) {
-					m_vEuler.x = static_cast<float>(3.1415926) * 0.5F;
-					m_vEuler.y = 2.F * atan2f(y, x);
-					m_vEuler.z = 0.F;
-				}
-				else if (m_fTest < -0.4995F * m_fDist) {
-					m_vEuler.x = static_cast<float>(3.1415926) * -0.5F;
-					m_vEuler.y = -2.F * atan2f(y, x);
-					m_vEuler.z = 0.F;
-				}
-				else {
-					m_vEuler.x = asinf(2.F * (w * x - y * z));
-					m_vEuler.y = atan2f(2.F * w * y + 2.F * z * x, 1.F - 2.F * (x * x + y * y));
-					m_vEuler.z = atan2f(2.F * w * z + 2.F * x * y, 1.F - 2.F * (z * z + x * x));
-				}
-
-				constexpr float m_fRad2Deg = 180.F / static_cast<float>(3.1415926);
-				m_vEuler.x *= m_fRad2Deg;
-				m_vEuler.y *= m_fRad2Deg;
-				m_vEuler.z *= m_fRad2Deg;
-
-				return m_vEuler;
-			}
-		};
-
-		struct Bounds {
-			Vector3 m_vCenter;
-			Vector3 m_vExtents;
-		};
-
-		struct Plane {
-			Vector3 m_vNormal;
-			float   fDistance;
-		};
-
-		struct Ray {
-			Vector3 m_vOrigin;
-			Vector3 m_vDirection;
-		};
-
-		struct Rect {
-			float fX,     fY;
-			float fWidth, fHeight;
-
-			Rect() { fX = fY = fWidth = fHeight = 0.f; }
-
-			Rect(const float f1, const float f2, const float f3, const float f4) {
-				fX      = f1;
-				fY      = f2;
-				fWidth  = f3;
-				fHeight = f4;
-			}
-		};
-
-		struct Color {
-			float r, g, b, a;
-
-			Color() { r = g = b = a = 0.f; }
-
-			explicit Color(const float fRed   = 0.f,
-						   const float fGreen = 0.f,
-						   const float fBlue  = 0.f,
-						   const float fAlpha = 1.f) {
-				r = fRed;
-				g = fGreen;
-				b = fBlue;
-				a = fAlpha;
-			}
-		};
-
-		struct Matrix4x4 {
-			float m[4][4] = {{0}};
-
-			Matrix4x4() = default;
-
-			auto operator[](const int i) -> float* { return m[i]; }
-		};
-
-		struct Object {
-			union {
-				void* klass{nullptr};
-				void* vtable;
-			}         Il2CppClass;
-
-			struct MonitorData* monitor{nullptr};
-
-			[[nodiscard]] auto GetClass() const -> void* { return this->Il2CppClass.klass; }
-		};
-
-		struct String : Object {
-			int32_t m_stringLength{0};
-			wchar_t m_firstChar[32]{};
-
-			[[nodiscard]] auto ToString() const -> std::string {
-				std::string sRet(static_cast<size_t>(m_stringLength) * 3 + 1, '\0');
-				WideCharToMultiByte(CP_UTF8,
-									0,
-									m_firstChar,
-									m_stringLength,
-									sRet.data(),
-									static_cast<int>(sRet.size()),
-									nullptr,
-									nullptr);
-				return sRet;
-			}
-
-			auto operator[](const int i) const -> wchar_t { return m_firstChar[i]; }
-
-			auto Clear() -> void {
-				memset(m_firstChar, 0, m_stringLength);
-				m_stringLength = 0;
-			}
-
-			static auto New(const std::string& str) -> String* {
-				if (mode_ == Mode::Il2cpp) {
-					return UnityResolve::Invoke<String*, const char*>("il2cpp_string_new", str.c_str());
-				}
-				return UnityResolve::Invoke<String*, void*, const char*>("mono_string_new", UnityResolve::Invoke<void*>("mono_get_root_domain"), str.c_str());
-			}
-		};
-
-		template<typename Type>
-		struct Array : Object {
-			struct {
-				std::uintptr_t length;
-				std::int32_t   lower_bound;
-			}*                 bounds{nullptr};
-
-			std::uintptr_t             max_length{0};
-			__declspec(align(8)) Type* vector[32]{};
-
-			auto operator[](const int i) -> Type* { return vector[i]; }
-
-			auto GetData() -> uintptr_t { return reinterpret_cast<uintptr_t>(&vector); }
-
-			auto At(unsigned int m_uIndex) -> Type& { return operator[](m_uIndex); }
-
-			auto Insert(Type* m_pArray, uintptr_t m_uSize, uintptr_t m_uIndex = 0) -> void {
-				if ((m_uSize + m_uIndex) >= max_length) {
-					if (m_uIndex >= max_length)
-						return;
-
-					m_uSize = max_length - m_uIndex;
-				}
-
-				for (uintptr_t u             = 0; m_uSize > u; ++u)
-					operator[](u + m_uIndex) = m_pArray[u];
-			}
-
-			auto Fill(Type m_tValue) -> void {
-				for (uintptr_t u  = 0; max_length > u; ++u)
-					operator[](u) = m_tValue;
-			}
-
-			auto RemoveAt(unsigned int m_uIndex) -> void {
-				if (m_uIndex >= max_length)
-					return;
-
-				if (max_length > (m_uIndex + 1)) {
-					for (unsigned int u = m_uIndex; (static_cast<unsigned int>(max_length) - m_uIndex) > u; ++u)
-						operator[](u)   = operator[](u + 1);
-				}
-
-				--max_length;
-			}
-
-			auto RemoveRange(unsigned int m_uIndex, unsigned int m_uCount) -> void {
-				if (m_uCount == 0)
-					m_uCount = 1;
-
-				const unsigned int m_uTotal = m_uIndex + m_uCount;
-				if (m_uTotal >= max_length)
-					return;
-
-				if (max_length > (m_uTotal + 1)) {
-					for (unsigned int u = m_uIndex; (static_cast<unsigned int>(max_length) - m_uTotal) >= u; ++u)
-						operator[](u)   = operator[](u + m_uCount);
-				}
-
-				max_length -= m_uCount;
-			}
-
-			auto RemoveAll() -> void {
-				if (max_length > 0) {
-					memset(GetData(), 0, sizeof(Type) * max_length);
-					max_length = 0;
-				}
-			}
-
-			static auto New(const void* kalss, const std::uintptr_t size) -> String* {
-				if (mode_ == Mode::Il2cpp) {
-					return UnityResolve::Invoke<Array*, void*, std::uintptr_t>("il2cpp_array_new", kalss, size);
-				}
-				return UnityResolve::Invoke<Array*, void*, void*, std::uintptr_t>("mono_array_new", pDomain, kalss, size);
-			}
-		};
-
-		template<typename Type>
-		struct List : Object {
-			Array<Type>* pList;
-
-			auto ToArray() -> Array<Type>* { return pList; }
-		};
-
-		template<typename TKey, typename TValue>
-		struct Dictionary : Object {
-			struct Entry {
-				int    iHashCode;
-				int    iNext;
-				TKey   tKey;
-				TValue tValue;
-			};
-
-			Array<int>*    pBuckets;
-			Array<Entry*>* pEntries;
-			int            iCount;
-			int            iVersion;
-			int            iFreeList;
-			int            iFreeCount;
-			void*          pComparer;
-			void*          pKeys;
-			void*          pValues;
-
-			auto GetEntry() -> Entry* { return static_cast<Entry*>(pEntries->GetData()); }
-
-			auto GetKeyByIndex(const int iIndex) -> TKey {
-				TKey tKey = {0};
-
-				Entry* pEntry = GetEntry();
-				if (pEntry)
-					tKey = pEntry[iIndex].m_tKey;
-
-				return tKey;
-			}
-
-			auto GetValueByIndex(const int iIndex) -> TValue {
-				TValue tValue = {0};
-
-				Entry* pEntry = GetEntry();
-				if (pEntry)
-					tValue = pEntry[iIndex].m_tValue;
-
-				return tValue;
-			}
-
-			auto GetValueByKey(const TKey tKey) -> TValue {
-				TValue tValue = {0};
-				for (int i = 0; i < iCount; i++) {
-					if (GetEntry()[i].m_tKey == tKey)
-						tValue = GetEntry()[i].m_tValue;
-				}
-				return tValue;
-			}
-
-			auto operator[](const TKey tKey) const -> TValue {
-				return GetValueByKey(tKey);
-			}
-		};
-
-		struct Camera {};
-
-	private:
-		template<typename Return, typename... Args>
-		static auto Invoke(const void* address, Args... args) -> Return {
-			if (address != nullptr)
-				return reinterpret_cast<Return(*)(Args...)>(address)(args...);
-			throw std::logic_error("nullptr");
-		}
-	};
-
 	struct Assembly;
 	struct Type;
 	struct Class;
@@ -457,6 +52,15 @@ public:
 				return static_cast<RType*>(methods[name]);
 			return nullptr;
 		}
+
+		auto GetType() const -> Type {
+			if (mode_ == Mode::Il2cpp) {
+				void* pUType = Invoke<void*, void*>("il2cpp_class_get_type", classinfo);
+				return { pUType, name, -1 };
+			}
+			void* pUType = Invoke<void*, void*>("mono_class_get_type", classinfo);
+			return { pUType, name, -1 };
+		}
 	};
 
 	struct Field final {
@@ -470,6 +74,9 @@ public:
 
 		template<typename T>
 		auto SetValue(T* value) const -> void {
+			if (!static_field)
+				return;
+
 			if (mode_ == Mode::Il2cpp) {
 				return Invoke<void, void*, T*>("il2cpp_field_static_set_value", fieldinfo, value);
 			}
@@ -480,6 +87,9 @@ public:
 
 		template<typename T>
 		auto GetValue(T* value) const -> void {
+			if (!static_field)
+				return;
+
 			if (mode_ == Mode::Il2cpp) {
 				return Invoke<void, void*, T*>("il2cpp_field_static_get_value", fieldinfo, value);
 			}
@@ -931,7 +541,7 @@ public:
 			for (const auto& [nClass, pClass] : pAssembly->classes) {
 				io << std::format("\tnamespace: {}", pClass->namespaze.empty() ? "" : pClass->namespaze);
 				io << "\n";
-				io << std::format("\tclass {}{} ", nClass, pClass->parent.empty() ? "" : " :" + pClass->parent);
+				io << std::format("\tclass {}{} ", nClass, pClass->parent.empty() ? "" : " : " + pClass->parent);
 				io << "{\n\n";
 				for (const auto& [nField, pField] : pClass->fields) {
 					io << std::format("\t\t{:+#06X} | {}{} {}\n", pField->offset, pField->static_field ? "static " : "", pField->type->name, nField);
@@ -983,6 +593,439 @@ public:
 	}
 
 	inline static std::map<std::string, const Assembly*> assembly;
+
+
+	class UnityType {
+	public:
+		struct Vector3 {
+			float x, y, z;
+
+			Vector3() { x = y = z = 0.f; }
+
+			Vector3(const float f1, const float f2, const float f3) {
+				x = f1;
+				y = f2;
+				z = f3;
+			}
+
+			[[nodiscard]] auto Length() const -> float { return x * x + y * y + z * z; }
+
+			[[nodiscard]] auto Dot(const Vector3 b) const -> float { return x * b.x + y * b.y + z * b.z; }
+
+			[[nodiscard]] auto  Normalize() const -> Vector3 {
+				if (const float len = Length(); len > 0)
+					return Vector3(x / len, y / len, z / len);
+				return Vector3(x, y, z);
+			}
+
+			auto ToVectors(Vector3* m_pForward, Vector3* m_pRight, Vector3* m_pUp) const -> void {
+				constexpr float m_fDeg2Rad = static_cast<float>(3.1415926) / 180.F;
+
+				const float m_fSinX = sinf(x * m_fDeg2Rad);
+				const float m_fCosX = cosf(x * m_fDeg2Rad);
+
+				const float m_fSinY = sinf(y * m_fDeg2Rad);
+				const float m_fCosY = cosf(y * m_fDeg2Rad);
+
+				const float m_fSinZ = sinf(z * m_fDeg2Rad);
+				const float m_fCosZ = cosf(z * m_fDeg2Rad);
+
+				if (m_pForward) {
+					m_pForward->x = m_fCosX * m_fCosY;
+					m_pForward->y = -m_fSinX;
+					m_pForward->z = m_fCosX * m_fSinY;
+				}
+
+				if (m_pRight) {
+					m_pRight->x = -1.f * m_fSinZ * m_fSinX * m_fCosY + -1.f * m_fCosZ * -m_fSinY;
+					m_pRight->y = -1.f * m_fSinZ * m_fCosX;
+					m_pRight->z = -1.f * m_fSinZ * m_fSinX * m_fSinY + -1.f * m_fCosZ * m_fCosY;
+				}
+
+				if (m_pUp) {
+					m_pUp->x = m_fCosZ * m_fSinX * m_fCosY + -m_fSinZ * -m_fSinY;
+					m_pUp->y = m_fCosZ * m_fCosX;
+					m_pUp->z = m_fCosZ * m_fSinX * m_fSinY + -m_fSinZ * m_fCosY;
+				}
+			}
+
+			[[nodiscard]] auto Distance(const Vector3& event) const -> float {
+				const float dx = this->x - event.x;
+				const float dy = this->y - event.y;
+				const float dz = this->z - event.z;
+				return std::sqrt(dx * dx + dy * dy + dz * dz);
+			}
+		};
+
+		struct Vector2 {
+			float x, y;
+
+			Vector2() { x = y = 0.f; }
+
+			Vector2(const float f1, const float f2) {
+				x = f1;
+				y = f2;
+			}
+
+			[[nodiscard]] auto Distance(const Vector2& event) const -> float {
+				const float dx = this->x - event.x;
+				const float dy = this->y - event.y;
+				return std::sqrt(dx * dx + dy * dy);
+			}
+		};
+
+		struct Vector4 {
+			float x, y, z, w;
+
+			Vector4() { x = y = z = w = 0.F; }
+
+			Vector4(const float f1, const float f2, const float f3, const float f4) {
+				x = f1;
+				y = f2;
+				z = f3;
+				w = f4;
+			}
+		};
+
+		struct Quaternion {
+			float x, y, z, w;
+
+			Quaternion() { x = y = z = w = 0.F; }
+
+			Quaternion(const float f1, const float f2, const float f3, const float f4) {
+				x = f1;
+				y = f2;
+				z = f3;
+				w = f4;
+			}
+
+			auto Euler(float m_fX, float m_fY, float m_fZ) -> Quaternion {
+				constexpr float m_fDeg2Rad = static_cast<float>(3.1415926) / 180.F;
+
+				m_fX = m_fX * m_fDeg2Rad * 0.5F;
+				m_fY = m_fY * m_fDeg2Rad * 0.5F;
+				m_fZ = m_fZ * m_fDeg2Rad * 0.5F;
+
+				const float m_fSinX = sinf(m_fX);
+				const float m_fCosX = cosf(m_fX);
+
+				const float m_fSinY = sinf(m_fY);
+				const float m_fCosY = cosf(m_fY);
+
+				const float m_fSinZ = sinf(m_fZ);
+				const float m_fCosZ = cosf(m_fZ);
+
+				x = m_fCosY * m_fSinX * m_fCosZ + m_fSinY * m_fCosX * m_fSinZ;
+				y = m_fSinY * m_fCosX * m_fCosZ - m_fCosY * m_fSinX * m_fSinZ;
+				z = m_fCosY * m_fCosX * m_fSinZ - m_fSinY * m_fSinX * m_fCosZ;
+				w = m_fCosY * m_fCosX * m_fCosZ + m_fSinY * m_fSinX * m_fSinZ;
+
+				return *this;
+			}
+
+			auto Euler(const Vector3 m_vRot) -> Quaternion { return Euler(m_vRot.x, m_vRot.y, m_vRot.z); }
+
+			[[nodiscard]] auto ToEuler() const -> Vector3 {
+				Vector3 m_vEuler;
+
+				const float m_fDist = (x * x) + (y * y) + (z * z) + (w * w);
+
+				if (const float m_fTest = x * w - y * z; m_fTest > 0.4995F * m_fDist) {
+					m_vEuler.x = static_cast<float>(3.1415926) * 0.5F;
+					m_vEuler.y = 2.F * atan2f(y, x);
+					m_vEuler.z = 0.F;
+				}
+				else if (m_fTest < -0.4995F * m_fDist) {
+					m_vEuler.x = static_cast<float>(3.1415926) * -0.5F;
+					m_vEuler.y = -2.F * atan2f(y, x);
+					m_vEuler.z = 0.F;
+				}
+				else {
+					m_vEuler.x = asinf(2.F * (w * x - y * z));
+					m_vEuler.y = atan2f(2.F * w * y + 2.F * z * x, 1.F - 2.F * (x * x + y * y));
+					m_vEuler.z = atan2f(2.F * w * z + 2.F * x * y, 1.F - 2.F * (z * z + x * x));
+				}
+
+				constexpr float m_fRad2Deg = 180.F / static_cast<float>(3.1415926);
+				m_vEuler.x *= m_fRad2Deg;
+				m_vEuler.y *= m_fRad2Deg;
+				m_vEuler.z *= m_fRad2Deg;
+
+				return m_vEuler;
+			}
+		};
+
+		struct Bounds {
+			Vector3 m_vCenter;
+			Vector3 m_vExtents;
+		};
+
+		struct Plane {
+			Vector3 m_vNormal;
+			float   fDistance;
+		};
+
+		struct Ray {
+			Vector3 m_vOrigin;
+			Vector3 m_vDirection;
+		};
+
+		struct Rect {
+			float fX, fY;
+			float fWidth, fHeight;
+
+			Rect() { fX = fY = fWidth = fHeight = 0.f; }
+
+			Rect(const float f1, const float f2, const float f3, const float f4) {
+				fX = f1;
+				fY = f2;
+				fWidth = f3;
+				fHeight = f4;
+			}
+		};
+
+		struct Color {
+			float r, g, b, a;
+
+			Color() { r = g = b = a = 0.f; }
+
+			explicit Color(const float fRed = 0.f,
+				const float fGreen = 0.f,
+				const float fBlue = 0.f,
+				const float fAlpha = 1.f) {
+				r = fRed;
+				g = fGreen;
+				b = fBlue;
+				a = fAlpha;
+			}
+		};
+
+		struct Matrix4x4 {
+			float m[4][4] = { {0} };
+
+			Matrix4x4() = default;
+
+			auto operator[](const int i) -> float* { return m[i]; }
+		};
+
+		struct Object {
+			union {
+				void* klass{ nullptr };
+				void* vtable;
+			}         Il2CppClass;
+
+			struct MonitorData* monitor{ nullptr };
+
+			[[nodiscard]] auto GetClass() const -> void* { return this->Il2CppClass.klass; }
+		};
+
+		struct String : Object {
+			int32_t m_stringLength{ 0 };
+			wchar_t m_firstChar[32]{};
+
+			[[nodiscard]] auto ToString() const -> std::string {
+				std::string sRet(static_cast<size_t>(m_stringLength) * 3 + 1, '\0');
+				WideCharToMultiByte(CP_UTF8,
+					0,
+					m_firstChar,
+					m_stringLength,
+					sRet.data(),
+					static_cast<int>(sRet.size()),
+					nullptr,
+					nullptr);
+				return sRet;
+			}
+
+			auto operator[](const int i) const -> wchar_t { return m_firstChar[i]; }
+
+			auto Clear() -> void {
+				memset(m_firstChar, 0, m_stringLength);
+				m_stringLength = 0;
+			}
+
+			static auto New(const std::string& str) -> String* {
+				if (mode_ == Mode::Il2cpp) {
+					return UnityResolve::Invoke<String*, const char*>("il2cpp_string_new", str.c_str());
+				}
+				return UnityResolve::Invoke<String*, void*, const char*>("mono_string_new", UnityResolve::Invoke<void*>("mono_get_root_domain"), str.c_str());
+			}
+		};
+
+		template<typename Type>
+		struct Array : Object {
+			struct {
+				std::uintptr_t length;
+				std::int32_t   lower_bound;
+			}*bounds{ nullptr };
+
+			std::uintptr_t             max_length{ 0 };
+			__declspec(align(8)) Type* vector[32]{};
+
+			auto operator[](const int i) -> Type* { return vector[i]; }
+
+			auto GetData() -> uintptr_t { return reinterpret_cast<uintptr_t>(&vector); }
+
+			auto At(unsigned int m_uIndex) -> Type& { return operator[](m_uIndex); }
+
+			auto Insert(Type* m_pArray, uintptr_t m_uSize, uintptr_t m_uIndex = 0) -> void {
+				if ((m_uSize + m_uIndex) >= max_length) {
+					if (m_uIndex >= max_length)
+						return;
+
+					m_uSize = max_length - m_uIndex;
+				}
+
+				for (uintptr_t u = 0; m_uSize > u; ++u)
+					operator[](u + m_uIndex) = m_pArray[u];
+			}
+
+			auto Fill(Type m_tValue) -> void {
+				for (uintptr_t u = 0; max_length > u; ++u)
+					operator[](u) = m_tValue;
+			}
+
+			auto RemoveAt(unsigned int m_uIndex) -> void {
+				if (m_uIndex >= max_length)
+					return;
+
+				if (max_length > (m_uIndex + 1)) {
+					for (unsigned int u = m_uIndex; (static_cast<unsigned int>(max_length) - m_uIndex) > u; ++u)
+						operator[](u) = operator[](u + 1);
+				}
+
+				--max_length;
+			}
+
+			auto RemoveRange(unsigned int m_uIndex, unsigned int m_uCount) -> void {
+				if (m_uCount == 0)
+					m_uCount = 1;
+
+				const unsigned int m_uTotal = m_uIndex + m_uCount;
+				if (m_uTotal >= max_length)
+					return;
+
+				if (max_length > (m_uTotal + 1)) {
+					for (unsigned int u = m_uIndex; (static_cast<unsigned int>(max_length) - m_uTotal) >= u; ++u)
+						operator[](u) = operator[](u + m_uCount);
+				}
+
+				max_length -= m_uCount;
+			}
+
+			auto RemoveAll() -> void {
+				if (max_length > 0) {
+					memset(GetData(), 0, sizeof(Type) * max_length);
+					max_length = 0;
+				}
+			}
+
+			static auto New(const void* kalss, const std::uintptr_t size) -> String* {
+				if (mode_ == Mode::Il2cpp) {
+					return UnityResolve::Invoke<Array*, void*, std::uintptr_t>("il2cpp_array_new", kalss, size);
+				}
+				return UnityResolve::Invoke<Array*, void*, void*, std::uintptr_t>("mono_array_new", pDomain, kalss, size);
+			}
+		};
+
+		template<typename Type>
+		struct List : Object {
+			Array<Type>* pList;
+
+			auto ToArray() -> Array<Type>* { return pList; }
+		};
+
+		template<typename TKey, typename TValue>
+		struct Dictionary : Object {
+			struct Entry {
+				int    iHashCode;
+				int    iNext;
+				TKey   tKey;
+				TValue tValue;
+			};
+
+			Array<int>* pBuckets;
+			Array<Entry*>* pEntries;
+			int            iCount;
+			int            iVersion;
+			int            iFreeList;
+			int            iFreeCount;
+			void* pComparer;
+			void* pKeys;
+			void* pValues;
+
+			auto GetEntry() -> Entry* { return static_cast<Entry*>(pEntries->GetData()); }
+
+			auto GetKeyByIndex(const int iIndex) -> TKey {
+				TKey tKey = { 0 };
+
+				Entry* pEntry = GetEntry();
+				if (pEntry)
+					tKey = pEntry[iIndex].m_tKey;
+
+				return tKey;
+			}
+
+			auto GetValueByIndex(const int iIndex) -> TValue {
+				TValue tValue = { 0 };
+
+				Entry* pEntry = GetEntry();
+				if (pEntry)
+					tValue = pEntry[iIndex].m_tValue;
+
+				return tValue;
+			}
+
+			auto GetValueByKey(const TKey tKey) -> TValue {
+				TValue tValue = { 0 };
+				for (int i = 0; i < iCount; i++) {
+					if (GetEntry()[i].m_tKey == tKey)
+						tValue = GetEntry()[i].m_tValue;
+				}
+				return tValue;
+			}
+
+			auto operator[](const TKey tKey) const -> TValue {
+				return GetValueByKey(tKey);
+			}
+		};
+
+		struct Camera {};
+
+		struct Transform {};
+
+		struct Component {};
+
+		struct LayerMask {};
+
+		struct Rigidbody {};
+
+
+		/**
+		 * \brief 获取类所有实例
+		 * \tparam T 返回数组类型
+		 * \param type 类
+		 * \return 返回实例指针数组
+		 */
+		template<typename T>
+		static auto FindObjectsByType(Class type) -> std::vector<T*> {
+			static Method::MethodPointer<Array<T>*, void*> pMethod = Method::FindMethod("Object", "FindObjectsOfType", "UnityEngine", "UnityEngine.CoreModule", 1)->Cast<Array<T>*, void*>();
+			if (pMethod) {
+				std::vector<T*> rs{};
+				auto array = pMethod(type.GetType().address);
+				for (int i = 0; i < array->max_length; i++) {
+					rs.push_back(array->At(i));
+				}
+			}
+			throw std::logic_error("nullptr");
+		}
+	private:
+		template<typename Return, typename... Args>
+		static auto Invoke(const void* address, Args... args) -> Return {
+			if (address != nullptr)
+				return reinterpret_cast<Return(*)(Args...)>(address)(args...);
+			throw std::logic_error("nullptr");
+		}
+	};
 
 private:
 	inline static Mode                         mode_{};
