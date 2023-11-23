@@ -2,7 +2,6 @@
 > ### 类型 (Type)
 > - [ ] Camera
 > - [ ] Transform
-> - [ ] Object (Unity)
 > - [ ] Component
 > - [ ] LayerMask
 > - [ ] Rigidbody
