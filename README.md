@@ -72,3 +72,10 @@ UnityResolve::DumpToFile("./Dump.cs");
 auto str = UnityResolve::UnityType::String::New("string | 字符串");
 std::string cppStr = str.ToString();
 ```
+### 获取实例 (Obtaining an instance)
+``` c++
+const auto ass = UnityResolve::assembly["Assembly-CSharp"];
+const auto klass = ass->classes["Player"];
+const auto playerVector = klass->FindObjectsByType<Player*>();
+playerVector.size();
+```
