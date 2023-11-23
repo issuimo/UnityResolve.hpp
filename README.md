@@ -25,7 +25,7 @@
 > ### 功能 (Function)
 > - [X] DumpToFile
 > - [X] 修改静态变量值 (Modifying the value of a static variable)
-> - [ ] 获取实例 (Obtaining an instance)
+> - [X] 获取实例 (Obtaining an instance)
 > - More...
 
 > [!NOTE]\
