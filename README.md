@@ -5,6 +5,9 @@
 > - [ ] Component
 > - [ ] LayerMask
 > - [ ] Rigidbody
+> - [ ] Physics
+> - [ ] Animation
+> - [ ] BoxCollider
 > - [X] Vector4
 > - [X] Vector3
 > - [X] Vector2
