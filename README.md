@@ -83,6 +83,6 @@ std::vector<T> cppVector = array.ToVector();
 ``` c++
 const auto ass = UnityResolve::assembly["Assembly-CSharp"];
 const auto klass = ass->classes["Player"];
-const auto playerVector = klass->FindObjectsByType<Player*>();
+std::vector<Player*> playerVector = klass->FindObjectsByType<Player*>();
 playerVector.size();
 ```
