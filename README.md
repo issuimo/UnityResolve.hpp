@@ -72,6 +72,13 @@ UnityResolve::DumpToFile("./Dump.cs");
 auto str = UnityResolve::UnityType::String::New("string | 字符串");
 std::string cppStr = str.ToString();
 ```
+### 创建C#数组 (Create C# Array)
+``` c++
+const auto classes = UnityResolve::assembly["assembly name | 程序集名称"]->classes;
+auto klass = classes["class name | 类名称"];
+auto array = UnityResolve::UnityType::Array::New(klass, size);
+std::vector<T> cppVector = array.ToVector();
+```
 ### 获取实例 (Obtaining an instance)
 ``` c++
 const auto ass = UnityResolve::assembly["Assembly-CSharp"];
