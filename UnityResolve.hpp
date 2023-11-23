@@ -950,11 +950,19 @@ public:
 				}
 			}
 
-			static auto New(const void* kalss, const std::uintptr_t size) -> String* {
+			auto ToVector() -> std::vector<Type> {
+				std::vector<Type> rs{};
+				rs.reserve(this->max_length);
+				for (int i = 0; i < this->max_length; i++)
+					rs.push_back(this->At(i));
+				return rs;
+			}
+
+			static auto New(const Class* kalss, const std::uintptr_t size) -> String* {
 				if (mode_ == Mode::Il2cpp) {
-					return UnityResolve::Invoke<Array*, void*, std::uintptr_t>("il2cpp_array_new", kalss, size);
+					return UnityResolve::Invoke<Array*, void*, std::uintptr_t>("il2cpp_array_new", kalss->classinfo, size);
 				}
-				return UnityResolve::Invoke<Array*, void*, void*, std::uintptr_t>("mono_array_new", pDomain, kalss, size);
+				return UnityResolve::Invoke<Array*, void*, void*, std::uintptr_t>("mono_array_new", pDomain, kalss->classinfo, size);
 			}
 		};
 
