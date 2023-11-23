@@ -2,7 +2,7 @@
 > ### 类型 (Type)
 > - [ ] Camera
 > - [ ] Transform
-> - [ ] GameObject
+> - [ ] Object (Unity)
 > - [ ] Component
 > - [ ] LayerMask
 > - [ ] Rigidbody
@@ -18,7 +18,7 @@
 > - [X] Matrix4x4
 > - [X] Array
 > - [x] String
-> - [x] Object
+> - [x] Object (C#)
 > - [X] List
 > - [X] Dictionary
 > - More...
