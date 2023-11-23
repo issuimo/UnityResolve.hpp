@@ -600,7 +600,7 @@ public:
 							pField->static_field = pField->offset == -1;
 							pField->type->name = Invoke<const char*>("il2cpp_type_get_name", pField->type->address);
 							pField->type->size = -1;
-							pAClass->fields[pField->type->name] = pField;
+							pAClass->fields[pField->name] = pField;
 						}
 					}
 					while (field);
@@ -664,7 +664,7 @@ public:
 									pField->static_field = pField->offset == -1;
 									pField->type->name = Invoke<const char*>("il2cpp_type_get_name", pField->type->address);
 									pField->type->size = -1;
-									pAClass->fields[pField->type->name] = pField;
+									pAClass->fields[pField->name] = pField;
 								}
 							} while (field);
 							iter = nullptr;
@@ -767,7 +767,7 @@ public:
 																	   pField->static_field = pField->offset == -1;
 																	   pField->type->name   = Invoke<const char*>("mono_type_get_name", pField->type->address);
 																	   pField->type->size = Invoke<int>("mono_type_size",pField->type->address, &tSize);
-																	   pAClass->fields[pField->type->name] = pField;
+																	   pAClass->fields[pField->name] = pField;
 																   }
 															   }
 															   while (field);
@@ -827,7 +827,7 @@ public:
 															   const void* iiter{};
 
 															   do {
-																   if ((iClass = Invoke<void*>("il2cpp_class_get_interfaces", pClass, &iiter))) {
+																   if ((iClass = Invoke<void*>("mono_class_get_interfaces", pClass, &iiter))) {
 																	   do {
 																		   if ((field = Invoke<void*>("mono_class_get_fields", iClass, &iter))) {
 																			   const auto pField = new Field{
@@ -845,7 +845,7 @@ public:
 																			   pField->static_field = pField->offset == -1;
 																			   pField->type->name = Invoke<const char*>("mono_type_get_name", pField->type->address);
 																			   pField->type->size = Invoke<int>("mono_type_size", pField->type->address, &tSize);
-																			   pAClass->fields[pField->type->name] = pField;
+																			   pAClass->fields[pField->name] = pField;
 																		   }
 																	   } while (field);
 																	   iter = nullptr;
