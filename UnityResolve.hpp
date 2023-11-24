@@ -78,16 +78,15 @@ public:
 		 */
 		template<typename T>
 		auto FindObjectsByType() -> std::vector<T> {
-			static Method::MethodPointer<UnityType::Array<T>*, void*> pMethod;
+			static Method* pMethod;
 
 			if (!pMethod) {
-				pMethod = Method::FindMethod("Object", "FindObjectsOfType", "UnityEngine", "UnityEngine.CoreModule", 1)->
-					Cast<UnityType::Array<T>*, void*>();
+				pMethod = Method::FindMethod("Object", "FindObjectsOfType", "UnityEngine", "UnityEngine.CoreModule", 1);
 			}
 			
 			if (pMethod) {
 				std::vector<T> rs{};
-				auto array = pMethod(this->GetType().GetObject());
+				auto array = pMethod->Invoke<UnityType::Array<T>*>(this->GetType().GetObject());
 				rs.reserve(array->max_length);
 				for (int i = 0; i < array->max_length; i++)
 					rs.push_back(array->At(i));
@@ -146,7 +145,21 @@ public:
 		std::map<std::string, const Type*> args;
 
 		template<typename Return, typename... Args>
-		auto Invoke(Args... args) -> Return { return static_cast<Return(*)(Args...)>(function)(args...); }
+		auto Invoke(Args... args) -> Return {
+			if (!function && mode_ == Mode::Mono)
+				function = Invoke<void*>("mono_compile_method", address);
+			if (function)
+				return static_cast<Return(*)(Args...)>(function)(args...);
+			throw std::logic_error("nullptr");
+		}
+
+		auto Compile() -> void {
+			if (!function && mode_ == Mode::Mono)
+				function = Invoke<void*>("mono_compile_method", address);
+			if (!function && mode_ == Mode::Mono) {
+				function = Invoke<void*>("mono_method_get_unmanaged_thunk", address);
+			}
+		}
 
 		template<typename Return>
 		auto RuntimeInvoke(void* obj, void** args) -> Return* {
@@ -166,7 +179,13 @@ public:
 		using MethodPointer = Return(*)(Args...);
 
 		template<typename Return, typename... Args>
-		auto Cast() -> MethodPointer<Return, Args...> { return static_cast<MethodPointer<Return, Args...>>(function); }
+		auto Cast() -> MethodPointer<Return, Args...> {
+			if (!function && mode_ == Mode::Mono)
+				function = Invoke<void*>("mono_compile_method", address);
+			if (function)
+				return static_cast<MethodPointer<Return, Args...>>(function);
+			throw std::logic_error("nullptr");
+		}
 
 		static auto FindMethod(const std::string& klass,
 							   const std::string& name,
@@ -441,7 +460,7 @@ public:
 																	   int        fFlags{};
 																	   const auto pMethod = new Method{
 																		   .address = field,
-																		   .name = Invoke<const char*>("mono_field_get_name", field),
+																		   .name = Invoke<const char*>("mono_method_get_name", field),
 																		   .klass = pAClass,
 																		   .return_type = new Type{
 																			   .address = Invoke<void*>("mono_signature_get_return_type", signature),
@@ -452,12 +471,6 @@ public:
 																	   pMethod->static_function = pMethod->flags & 0x10;
 																	   pMethod->return_type->name = Invoke<const char*>("mono_type_get_name", pMethod->return_type->address);
 																	   pMethod->return_type->size = Invoke<int>("mono_type_size", pMethod->return_type->address, &tSize);
-																	   try { // Unity bug
-																		   pMethod->function = Invoke<void*>("mono_compile_method", field);
-																	   }
-																	   catch (...) {
-																		   std::cout << "mono_compile_method error : " << std::hex << field << std::endl;
-																	   }
 																	   if (!pAClass->methods.contains(pMethod->name)) {
 																		   pAClass->methods[pMethod->name] = pMethod;
 																	   }
@@ -524,7 +537,7 @@ public:
 																			   int        fFlags{};
 																			   const auto pMethod = new Method{
 																				   .address = field,
-																				   .name = Invoke<const char*>("mono_field_get_name", field),
+																				   .name = Invoke<const char*>("mono_method_get_name", field),
 																				   .klass = pAClass,
 																				   .return_type = new Type{
 																					   .address = Invoke<void*>("mono_signature_get_return_type", signature),
@@ -535,12 +548,6 @@ public:
 																			   pMethod->static_function = pMethod->flags & 0x10;
 																			   pMethod->return_type->name = Invoke<const char*>("mono_type_get_name", pMethod->return_type->address);
 																			   pMethod->return_type->size = Invoke<int>("mono_type_size", pMethod->return_type->address, &tSize);
-																			   try { // Unity bug
-																				   pMethod->function = Invoke<void*>("mono_compile_method", field);
-																			   }
-																			   catch (...) {
-																				   std::cout << "mono_compile_method error : " << std::hex << field << std::endl;
-																			   }
 																			   if (!pAClass->methods.contains(pMethod->name)) {
 																				   pAClass->methods[pMethod->name] = pMethod;
 																			   }
