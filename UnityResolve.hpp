@@ -17,7 +17,6 @@ public:
 	struct Class;
 	struct Field;
 	struct Method;
-	class UnityType;
 
 	enum class Mode : char {
 		Il2cpp,
@@ -79,9 +78,13 @@ public:
 		 */
 		template<typename T>
 		auto FindObjectsByType() -> std::vector<T> {
-			static Method::MethodPointer<UnityType::Array<T>*, void*> pMethod = 
-			Method::FindMethod("Object", "FindObjectsOfType", "UnityEngine", "UnityEngine.CoreModule", 1)->
-			Cast<UnityType::Array<T>*, void*>();
+			static Method::MethodPointer<UnityType::Array<T>*, void*> pMethod;
+
+			if (!pMethod) {
+				pMethod = Method::FindMethod("Object", "FindObjectsOfType", "UnityEngine", "UnityEngine.CoreModule", 1)->
+					Cast<UnityType::Array<T>*, void*>();
+			}
+			
 			if (pMethod) {
 				std::vector<T> rs{};
 				auto array = pMethod(this->GetType().GetObject());
@@ -90,7 +93,8 @@ public:
 					rs.push_back(array->At(i));
 				return rs;
 			}
-			throw std::logic_error("nullptr");
+
+			throw std::logic_error("FindObjectsOfType nullptr");
 		}
 	};
 
@@ -139,7 +143,7 @@ public:
 		bool         static_function;
 		void*        function;
 
-		std::map<std::string, const Type*> args;
+		std::unordered_map<std::string, const Type*> args;
 
 		template<typename Return, typename... Args>
 		auto Invoke(Args... args) -> Return { return static_cast<Return(*)(Args...)>(function)(args...); }
@@ -169,7 +173,7 @@ public:
 							   const std::string& namespaze,
 							   const std::string& assembly_name,
 							   const size_t       args) -> Method* {
-			const auto vklass = assembly[assembly_name]->classes.at(klass);
+			const auto vklass = assembly[assembly_name]->classes[klass];
 			if (const auto vmethod = vklass->namespaze == namespaze ? vklass->methods[name] : nullptr; vmethod &&
 				vmethod->args.size() == args)
 				return vmethod;
@@ -212,6 +216,7 @@ public:
 				assembly->file    = Invoke<const char*>("il2cpp_image_get_filename", image);
 				const int count   = Invoke<int>("il2cpp_image_get_class_count", image);
 
+				int iClass{ 0 };
 				for (int i = 0; i < count; i++) {
 					const auto pClass = Invoke<void*>("il2cpp_image_get_class", image, i);
 					if (pClass == nullptr)
@@ -224,7 +229,13 @@ public:
 						pAClass->parent = Invoke<const char*>("il2cpp_class_get_name", pPClass);
 
 					pAClass->namespaze               = Invoke<const char*>("il2cpp_class_get_namespace", pClass);
-					assembly->classes[pAClass->name] = pAClass;
+					if (!assembly->classes.contains(pAClass->name)) {
+						assembly->classes[pAClass->name] = pAClass;
+					}
+					else {
+						iClass++;
+						assembly->classes[pAClass->name + std::to_string(iClass)] = pAClass;
+					}
 
 					void* iter = nullptr;
 					void* field;
@@ -287,13 +298,13 @@ public:
 					while (field);
 					iter = nullptr;
 					iMethod = 0;
-					const void* iClass{};
+					const void* i_class{};
 					const void* iiter{};
 
 					do {
-						if ((iClass = Invoke<void*>("il2cpp_class_get_interfaces", pClass, &iiter))) {
+						if ((i_class = Invoke<void*>("il2cpp_class_get_interfaces", pClass, &iiter))) {
 							do {
-								if ((field = Invoke<void*>("il2cpp_class_get_fields", iClass, &iter))) {
+								if ((field = Invoke<void*>("il2cpp_class_get_fields", i_class, &iter))) {
 									const auto pField = new Field{
 										.fieldinfo = field, .name = Invoke<const char*>("il2cpp_field_get_name", field),
 										.type = new Type{.address = Invoke<void*>("il2cpp_field_get_type", field)},
@@ -311,7 +322,7 @@ public:
 							iter = nullptr;
 
 							do {
-								if ((field = Invoke<void*>("il2cpp_class_get_methods", iClass, &iter))) {
+								if ((field = Invoke<void*>("il2cpp_class_get_methods", i_class, &iter))) {
 									int        fFlags{};
 									const auto pMethod = new Method{
 										.address = field, .name = Invoke<const char*>("il2cpp_method_get_name", field),
@@ -349,7 +360,7 @@ public:
 							iter = nullptr;
 							iMethod = 0;
 						}
-					} while (iClass);
+					} while (i_class);
 				}
 			}
 		}
@@ -375,6 +386,7 @@ public:
 														   const void* table = Invoke<void*>("mono_image_get_table_info", image, 2);
 														   const int count = Invoke<int>("mono_table_info_get_rows", table);
 
+														   int iClass{};
 														   for (int i = 0; i < count; i++) {
 															   const auto pClass = Invoke<void*>("mono_class_get", image, 0x02000000 | (i + 1));
 															   if (pClass == nullptr)
@@ -387,7 +399,13 @@ public:
 																   pAClass->parent = Invoke<const char*>("mono_class_get_name", pPClass);
 															   }
 															   pAClass->namespaze = Invoke<const char*>("mono_class_get_namespace", pClass);
-															   assembly->classes[pAClass->name] = pAClass;
+															   if (!assembly->classes.contains(pAClass->name)) {
+																   assembly->classes[pAClass->name] = pAClass;
+															   }
+															   else {
+																   iClass++;
+																   assembly->classes[pAClass->name + std::to_string(iClass)] = pAClass;
+															   }
 
 															   void* iter = nullptr;
 															   void* field;
@@ -626,7 +644,7 @@ public:
 	inline static std::map<std::string, Assembly*> assembly;
 
 
-	class UnityType {
+	class UnityType final {
 	public:
 		struct Vector3 {
 			float x, y, z;
@@ -965,7 +983,7 @@ public:
 				return UnityResolve::Invoke<Array*, void*, void*, std::uintptr_t>("mono_array_new", pDomain, kalss->classinfo, size);
 			}
 		};
-
+			
 		template<typename Type>
 		struct List : Object {
 			Array<Type>* pList;
@@ -1028,15 +1046,78 @@ public:
 			}
 		};
 
-		struct Camera {};
+		struct Camera {
+			enum class Eye : int {
+				Left,
+				Right,
+				Mono
+			};
 
-		struct Transform {};
+			static auto GetMain() -> Camera* {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule"]->classes["Camera"]->methods["get_main"];
 
-		struct Component {};
+				if (method)
+					return method->Invoke<Camera*>();
+				return nullptr;
+			}
 
-		struct LayerMask {};
+			auto GetDepth() -> float {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule"]->classes["Camera"]->methods["get_depth"];
 
-		struct Rigidbody {};
+				if (method)
+					return method->Invoke<float>(this);
+				return 0.0f;
+			}
+
+			auto SetDepth(const float depth) -> void {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule"]->classes["Camera"]->methods["set_depth"];
+
+				if (method)
+					return method->Invoke<void>(this, depth);
+			}
+
+			auto WorldToScreenPoint(const Vector3 position, const Eye eye) -> Vector3 {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule"]->classes["Camera"]->methods["WorldToScreenPoint"];
+
+				if (method)
+					return method->Invoke<Vector3>(this, position, eye);
+				return {};
+			}
+
+			auto ScreenToWorldPoint(const Vector3 position, const Eye eye) -> Vector3 {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule"]->classes["Camera"]->methods["ScreenToWorldPoint"];
+
+				if (method)
+					return method->Invoke<Vector3>(this, position, eye);
+				return {};
+			}
+		};
+
+		struct Transform {
+			
+		};
+
+		struct Component {
+			
+		};
+
+		struct LayerMask {
+			
+		};
+
+		struct Rigidbody {
+			
+		};
 
 	private:
 		template<typename Return, typename... Args>
