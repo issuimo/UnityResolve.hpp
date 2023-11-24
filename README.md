@@ -89,3 +89,8 @@ const auto klass = ass->classes["Player"];
 std::vector<Player*> playerVector = klass->FindObjectsByType<Player*>();
 playerVector.size();
 ```
+#### 世界坐标转屏幕坐标 (WorldToScreenPoint)
+``` c++
+Camera* pCamera = UnityResolve::UnityType::Camera::GetMain();
+Vector3 point = pCamera->WorldToScreenPoint(Vector3, Eye::Left);
+```
