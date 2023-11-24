@@ -1,5 +1,5 @@
-> [!WARNING] \
-> 因部分Unity Mono自身存在mono_compile_method导致程序崩溃问题库可能需要SEH异常处理才能正常工作
+> [!WARNING]\
+> 因部分Unity Mono自身存在mono_compile_method导致程序崩溃问题库可能需要SEH异常处理才能正常工作 \
 > The library may require SEH exception handling to function properly due to the presence of mono_compile_method, which can cause program crashes in certain Unity Mono versions.
 
 # UnityResolve.hpp
