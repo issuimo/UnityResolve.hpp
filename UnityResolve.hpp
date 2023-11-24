@@ -420,13 +420,15 @@ public:
 																		   .klass = pAClass,
 																		   .offset = Invoke<int>("mono_field_get_offset", field),
 																		   .static_field = false,
-																	   	   .vTable = Invoke<void*>("mono_class_vtable", pDomain, pClass)
+																		   .vTable = nullptr
 																	   };
 																	   int tSize{};
 																	   pField->static_field = pField->offset == -1;
 																	   pField->type->name   = Invoke<const char*>("mono_type_get_name", pField->type->address);
 																	   pField->type->size = Invoke<int>("mono_type_size",pField->type->address, &tSize);
 																	   pAClass->fields[pField->name] = pField;
+																	   if (pField->static_field)
+																		   pField->vTable = Invoke<void*>("mono_class_vtable", pDomain, pClass);
 																   }
 															   }
 															   while (field);
@@ -450,7 +452,12 @@ public:
 																	   pMethod->static_function = pMethod->flags & 0x10;
 																	   pMethod->return_type->name = Invoke<const char*>("mono_type_get_name", pMethod->return_type->address);
 																	   pMethod->return_type->size = Invoke<int>("mono_type_size", pMethod->return_type->address, &tSize);
-																	   pMethod->function = Invoke<void*>("mono_compile_method", field);
+																	   try { // Unity bug
+																		   pMethod->function = Invoke<void*>("mono_compile_method", field);
+																	   }
+																	   catch (...) {
+																		   std::cout << "mono_compile_method error : " << std::hex << field << std::endl;
+																	   }
 																	   if (!pAClass->methods.contains(pMethod->name)) {
 																		   pAClass->methods[pMethod->name] = pMethod;
 																	   }
@@ -498,13 +505,15 @@ public:
 																				   .klass = pAClass,
 																				   .offset = Invoke<int>("mono_field_get_offset", field),
 																				   .static_field = false,
-																				   .vTable = Invoke<void*>("mono_class_vtable", pDomain, iClass)
+																				   .vTable = nullptr
 																			   };
 																			   int tSize{};
 																			   pField->static_field = pField->offset == -1;
 																			   pField->type->name = Invoke<const char*>("mono_type_get_name", pField->type->address);
 																			   pField->type->size = Invoke<int>("mono_type_size", pField->type->address, &tSize);
 																			   pAClass->fields[pField->name] = pField;
+																			   if (pField->static_field)
+																				   pField->vTable = Invoke<void*>("mono_class_vtable", pDomain, pClass);
 																		   }
 																	   } while (field);
 																	   iter = nullptr;
@@ -526,7 +535,12 @@ public:
 																			   pMethod->static_function = pMethod->flags & 0x10;
 																			   pMethod->return_type->name = Invoke<const char*>("mono_type_get_name", pMethod->return_type->address);
 																			   pMethod->return_type->size = Invoke<int>("mono_type_size", pMethod->return_type->address, &tSize);
-																			   pMethod->function = Invoke<void*>("mono_compile_method", field);
+																			   try { // Unity bug
+																				   pMethod->function = Invoke<void*>("mono_compile_method", field);
+																			   }
+																			   catch (...) {
+																				   std::cout << "mono_compile_method error : " << std::hex << field << std::endl;
+																			   }
 																			   if (!pAClass->methods.contains(pMethod->name)) {
 																				   pAClass->methods[pMethod->name] = pMethod;
 																			   }
@@ -900,7 +914,7 @@ public:
 			}
 		};
 
-		template<typename Type>
+		template<typename T>
 		struct Array : Object {
 			struct {
 				std::uintptr_t length;
@@ -908,15 +922,21 @@ public:
 			}*bounds{ nullptr };
 
 			std::uintptr_t             max_length{ 0 };
-			__declspec(align(8)) Type* vector[32]{};
+			__declspec(align(8)) T* vector[32]{};
 
-			auto operator[](const int i) -> Type { return vector[i]; }
+			auto GetData() -> uintptr_t {
+				return reinterpret_cast<uintptr_t>(&vector);
+			}
 
-			auto GetData() -> uintptr_t { return reinterpret_cast<uintptr_t>(&vector); }
+			auto operator[](unsigned int m_uIndex) -> T& {
+				return *reinterpret_cast<T*>(GetData() + sizeof(T) * m_uIndex);
+			}
 
-			auto At(unsigned int m_uIndex) -> Type { return operator[](m_uIndex); }
+			auto At(unsigned int m_uIndex) -> T& {
+				return operator[](m_uIndex);
+			}
 
-			auto Insert(Type* m_pArray, uintptr_t m_uSize, uintptr_t m_uIndex = 0) -> void {
+			auto Insert(T* m_pArray, uintptr_t m_uSize, const uintptr_t m_uIndex = 0) -> void {
 				if ((m_uSize + m_uIndex) >= max_length) {
 					if (m_uIndex >= max_length)
 						return;
@@ -928,7 +948,7 @@ public:
 					operator[](u + m_uIndex) = m_pArray[u];
 			}
 
-			auto Fill(Type m_tValue) -> void {
+			auto Fill(T m_tValue) -> void {
 				for (uintptr_t u = 0; max_length > u; ++u)
 					operator[](u) = m_tValue;
 			}
