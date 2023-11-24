@@ -153,11 +153,8 @@ public:
 		}
 
 		auto Compile() -> void {
-			if (!function && mode_ == Mode::Mono)
-				function = Invoke<void*>("mono_compile_method", address);
-			if (!function && mode_ == Mode::Mono) {
-				function = Invoke<void*>("mono_method_get_unmanaged_thunk", address);
-			}
+			if (address && !function && mode_ == Mode::Mono)
+				function = UnityResolve::Invoke<void*>("mono_compile_method", address);
 		}
 
 		template<typename Return>
@@ -663,7 +660,7 @@ public:
 		std::lock_guard   lock(mutex);
 
 		// 检查函数是否已经获取地址, 没有则自动获取
-		if (!address_.contains(funcName))
+		if (!address_.contains(funcName) || address_[funcName] == nullptr)
 			address_[funcName] = static_cast<void*>(GetProcAddress(hmodule_, funcName.c_str()));
 
 		if (address_[funcName] != nullptr)
