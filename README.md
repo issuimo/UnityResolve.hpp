@@ -1,6 +1,6 @@
 # UnityResolve.hpp
 > ### 类型 (Type)
-> - [ ] Camera
+> - [X] Camera
 > - [ ] Transform
 > - [ ] Component
 > - [ ] LayerMask
