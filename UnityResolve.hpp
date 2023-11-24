@@ -28,7 +28,7 @@ public:
 		void*                         address;
 		std::string                   name;
 		std::string                   file;
-		std::map<std::string, Class*> classes;
+		std::unordered_map<std::string, Class*> classes;
 	};
 
 	struct Type final {
@@ -49,8 +49,8 @@ public:
 		std::string                    name;
 		std::string                    parent;
 		std::string                    namespaze;
-		std::map<std::string, Field*>  fields;
-		std::map<std::string, Method*> methods;
+		std::unordered_map<std::string, Field*>  fields;
+		std::unordered_map<std::string, Method*> methods;
 
 		template<typename RType>
 		auto Get(const std::string& name) -> RType* {
@@ -369,8 +369,8 @@ public:
 			Invoke<void*>("mono_thread_attach", pDomain);
 			Invoke<void*>("mono_jit_thread_attach", pDomain);
 
-			Invoke<void*, void(*)(void* ptr, std::map<std::string, Assembly*>&), std::map<std::string, Assembly*>&>("mono_assembly_foreach",
-													   [](void* ptr, std::map<std::string, Assembly*>& v) {
+			Invoke<void*, void(*)(void* ptr, std::unordered_map<std::string, Assembly*>&), std::unordered_map<std::string, Assembly*>&>("mono_assembly_foreach",
+													   [](void* ptr, std::unordered_map<std::string, Assembly*>& v) {
 														   if (ptr == nullptr)
 															   return;
 
@@ -641,7 +641,7 @@ public:
 		throw std::logic_error("Not find function");
 	}
 
-	inline static std::map<std::string, Assembly*> assembly;
+	inline static std::unordered_map<std::string, Assembly*> assembly;
 
 
 	class UnityType final {
@@ -772,7 +772,7 @@ public:
 				return *this;
 			}
 
-			auto Euler(const Vector3 m_vRot) -> Quaternion { return Euler(m_vRot.x, m_vRot.y, m_vRot.z); }
+			auto Euler(const Vector3& m_vRot) -> Quaternion { return Euler(m_vRot.x, m_vRot.y, m_vRot.z); }
 
 			[[nodiscard]] auto ToEuler() const -> Vector3 {
 				Vector3 m_vEuler;
@@ -933,7 +933,7 @@ public:
 					operator[](u) = m_tValue;
 			}
 
-			auto RemoveAt(unsigned int m_uIndex) -> void {
+			auto RemoveAt(const unsigned int m_uIndex) -> void {
 				if (m_uIndex >= max_length)
 					return;
 
@@ -1082,7 +1082,7 @@ public:
 					return method->Invoke<void>(this, depth);
 			}
 
-			auto WorldToScreenPoint(const Vector3 position, const Eye eye) -> Vector3 {
+			auto WorldToScreenPoint(const Vector3& position, const Eye eye) -> Vector3 {
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.CoreModule"]->classes["Camera"]->methods["WorldToScreenPoint"];
@@ -1092,7 +1092,7 @@ public:
 				return {};
 			}
 
-			auto ScreenToWorldPoint(const Vector3 position, const Eye eye) -> Vector3 {
+			auto ScreenToWorldPoint(const Vector3& position, const Eye eye) -> Vector3 {
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.CoreModule"]->classes["Camera"]->methods["ScreenToWorldPoint"];
@@ -1131,7 +1131,7 @@ public:
 private:
 	inline static Mode                         mode_{};
 	inline static HMODULE                      hmodule_;
-	inline static std::map<std::string, void*> address_{};
+	inline static std::unordered_map<std::string, void*> address_{};
 	inline static void* pDomain{};
 };
 #endif // UNITYRESOLVE_HPP
