@@ -201,6 +201,17 @@ public:
 		}
 	};
 
+	static auto ThreadAttach() -> void {
+		if (mode_ == Mode::Il2cpp) {
+			Invoke<void*>("il2cpp_thread_attach", pDomain);
+		}
+		else {
+			Invoke<void*>("mono_thread_attach", pDomain);
+			Invoke<void*>("mono_jit_thread_attach", pDomain);
+		}
+		
+	}
+
 	static auto Init(const HMODULE hmodule, const Mode mode = Mode::Auto) -> void {
 		mode_    = mode;
 		hmodule_ = hmodule;
