@@ -7,6 +7,7 @@
 #include <string>
 #include <mutex>
 #include <unordered_map>
+#include <iostream>
 #include <windows.h>
 #include <vector>
 
@@ -81,7 +82,7 @@ public:
 			static Method* pMethod;
 
 			if (!pMethod) {
-				pMethod = Method::FindMethod("Object", "FindObjectsOfType", "UnityEngine", "UnityEngine.CoreModule", 1);
+				pMethod = Method::FindMethod("Object",mode_ == Mode::Il2cpp ? "FindObjectsOfType" : "FindObjectsOfTypeAll", "UnityEngine", "UnityEngine.CoreModule", 1);
 			}
 			
 			if (pMethod) {
