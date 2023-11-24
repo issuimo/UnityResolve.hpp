@@ -1060,7 +1060,7 @@ public:
 
 				if (method)
 					return method->Invoke<Camera*>();
-				return nullptr;
+				throw std::logic_error("nullptr");
 			}
 
 			auto GetDepth() -> float {
@@ -1070,7 +1070,7 @@ public:
 
 				if (method)
 					return method->Invoke<float>(this);
-				return 0.0f;
+				throw std::logic_error("nullptr");
 			}
 
 			auto SetDepth(const float depth) -> void {
@@ -1089,7 +1089,7 @@ public:
 
 				if (method)
 					return method->Invoke<Vector3>(this, position, eye);
-				return {};
+				throw std::logic_error("nullptr");
 			}
 
 			auto ScreenToWorldPoint(const Vector3& position, const Eye eye) -> Vector3 {
@@ -1099,16 +1099,62 @@ public:
 
 				if (method)
 					return method->Invoke<Vector3>(this, position, eye);
-				return {};
+				throw std::logic_error("nullptr");
 			}
 		};
 
 		struct Transform {
-			
+			auto GetPosition() -> Vector3 {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule"]->classes["Transform"]->methods["get_position"];
+
+				if (method)
+					return method->Invoke<Vector3>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto SetPosition(const Vector3& position) -> Vector3 {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule"]->classes["Transform"]->methods["set_position"];
+
+				if (method)
+					return method->Invoke<Vector3>(this, position);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetChildCount() -> int {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule"]->classes["Transform"]->methods["get_childCount"];
+
+				if (method)
+					return method->Invoke<int>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetChild(const int index) -> Transform* {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule"]->classes["Transform"]->methods["GetChild"];
+
+				if (method)
+					return method->Invoke<Transform*>(this, index);
+				throw std::logic_error("nullptr");
+			}
 		};
 
 		struct Component {
-			
+			auto GetTransform() -> Transform* {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule"]->classes["Component"]->methods["get_transform"];
+
+				if (method)
+					return method->Invoke<Transform*>(this);
+				throw std::logic_error("nullptr");
+			}
 		};
 
 		struct LayerMask {
