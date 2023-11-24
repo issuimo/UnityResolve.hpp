@@ -2,6 +2,10 @@
 > 因部分Unity Mono自身存在mono_compile_method导致程序崩溃问题库可能需要SEH异常处理才能正常工作 \
 > The library may require SEH exception handling to function properly due to the presence of mono_compile_method, which can cause program crashes in certain Unity Mono versions.
 
+> [!NOTE]\
+> 有新的功能建议或者Bug可以提交Issues \
+> New feature suggestions or bugs can be submitted as issues.
+
 # UnityResolve.hpp
 > ### 类型 (Type)
 > - [X] Camera
@@ -34,10 +38,6 @@
 > - [X] 修改静态变量值 (Modifying the value of a static variable)
 > - [X] 获取实例 (Obtaining an instance)
 > - More...
-
-> [!NOTE]\
-> 有新的功能建议或者Bug可以提交Issues \
-> New feature suggestions or bugs can be submitted as issues.
 
 #### 初始化 (Initialization)
 ``` c++
