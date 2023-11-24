@@ -47,8 +47,9 @@ UnityResolve::Init(GetModuleHandle(L"GameAssembly.dll | mono.dll"), UnityResolve
 > - Mode::Mono
 > - Mode::Auto
 
-### 附加线程 (Thread Attach)
+#### 附加线程 (Thread Attach)
 ``` c++
+// C# GC Attach
 UnityResolve::ThreadAttach();
 ```
 
