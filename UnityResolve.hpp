@@ -49,7 +49,7 @@ public:
 		std::string                    name;
 		std::string                    parent;
 		std::string                    namespaze;
-		std::unordered_map<std::string, Field*>  fields;
+		std::map<std::string, Field*>  fields;
 		std::unordered_map<std::string, Method*> methods;
 
 		template<typename RType>
@@ -143,7 +143,7 @@ public:
 		bool         static_function;
 		void*        function;
 
-		std::unordered_map<std::string, const Type*> args;
+		std::map<std::string, const Type*> args;
 
 		template<typename Return, typename... Args>
 		auto Invoke(Args... args) -> Return { return static_cast<Return(*)(Args...)>(function)(args...); }
