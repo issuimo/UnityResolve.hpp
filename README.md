@@ -1,8 +1,8 @@
 # UnityResolve.hpp
 > ### 类型 (Type)
 > - [X] Camera
-> - [ ] Transform
-> - [ ] Component
+> - [X] Transform
+> - [X] Component
 > - [ ] LayerMask
 > - [ ] Rigidbody
 > - [ ] Physics
