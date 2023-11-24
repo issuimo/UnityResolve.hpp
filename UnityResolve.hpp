@@ -81,9 +81,8 @@ public:
 		auto FindObjectsByType() -> std::vector<T> {
 			static Method* pMethod;
 
-			if (!pMethod) {
-				pMethod = Method::FindMethod("Object",mode_ == Mode::Il2cpp ? "FindObjectsOfType" : "FindObjectsOfTypeAll", "UnityEngine", "UnityEngine.CoreModule", 1);
-			}
+			if (!pMethod)
+				pMethod = assembly["UnityEngine.CoreModule"]->classes["Object"]->methods[mode_ == Mode::Il2cpp ? "FindObjectsOfType" : "FindObjectsOfTypeAll"];
 			
 			if (pMethod) {
 				std::vector<T> rs{};
@@ -147,8 +146,7 @@ public:
 
 		template<typename Return, typename... Args>
 		auto Invoke(Args... args) -> Return {
-			if (!function && mode_ == Mode::Mono)
-				function = Invoke<void*>("mono_compile_method", address);
+			Compile();
 			if (function)
 				return static_cast<Return(*)(Args...)>(function)(args...);
 			throw std::logic_error("nullptr");
@@ -181,8 +179,7 @@ public:
 
 		template<typename Return, typename... Args>
 		auto Cast() -> MethodPointer<Return, Args...> {
-			if (!function && mode_ == Mode::Mono)
-				function = Invoke<void*>("mono_compile_method", address);
+			Compile();
 			if (function)
 				return static_cast<MethodPointer<Return, Args...>>(function);
 			throw std::logic_error("nullptr");
@@ -407,15 +404,15 @@ public:
 
 														   const auto assembly = new Assembly{
 															   .address = ptr,
-															   .name = Invoke<const char*>("mono_assembly_get_name", ptr)
 														   };
-														   v[assembly->name] = assembly;
 
 														   const void* image = Invoke<void*>("mono_assembly_get_image", ptr);
 														   assembly->file = Invoke<const char*>("mono_image_get_filename", image);
+														   assembly->name = Invoke<const char*>("mono_image_get_name", image);
 
 														   const void* table = Invoke<void*>("mono_image_get_table_info", image, 2);
 														   const int count = Invoke<int>("mono_table_info_get_rows", table);
+														   v[assembly->name] = assembly;
 
 														   int iClass{};
 														   for (int i = 0; i < count; i++) {
