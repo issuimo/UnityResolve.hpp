@@ -11,6 +11,12 @@
 #include <windows.h>
 #include <vector>
 
+#ifdef _WIN64
+#define UNITY_CALLING_CONVENTION __fastcall*
+#elif _WIN32
+#define UNITY_CALLING_CONVENTION __cdecl*
+#endif
+
 class UnityResolve final {
 public:
 	struct Assembly;
@@ -148,7 +154,7 @@ public:
 		auto Invoke(Args... args) -> Return {
 			Compile();
 			if (function)
-				return static_cast<Return(*)(Args...)>(function)(args...);
+				return static_cast<Return(UNITY_CALLING_CONVENTION)(Args...)>(function)(args...);
 			throw std::logic_error("nullptr");
 		}
 
@@ -160,15 +166,9 @@ public:
 		template<typename Return>
 		auto RuntimeInvoke(void* obj, void** args) -> Return* {
 			if (mode_ == Mode::Il2cpp) {
-				return static_cast<Return*>(UnityResolve::Invoke<void*>(
-					"il2cpp_runtime_invoke",
-					address,
-					obj,
-					args,
-					nullptr));
+				return static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, args, nullptr));
 			}
-			return static_cast<Return*>(UnityResolve::Invoke<void
-				*>("mono_runtime_invoke", address, obj, args, nullptr));
+			return static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, args, nullptr));
 		}
 
 		template<typename Return, typename... Args>
@@ -663,7 +663,7 @@ public:
 			address_[funcName] = static_cast<void*>(GetProcAddress(hmodule_, funcName.c_str()));
 
 		if (address_[funcName] != nullptr)
-			return reinterpret_cast<Return(*)(Args...)>(address_[funcName])(args...);
+			return reinterpret_cast<Return(UNITY_CALLING_CONVENTION)(Args...)>(address_[funcName])(args...);
 		throw std::logic_error("Not find function");
 	}
 
@@ -1137,7 +1137,6 @@ public:
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods["get_depth"];
-
 				if (method)
 					return method->Invoke<float>(this);
 				throw std::logic_error("nullptr");
@@ -1147,7 +1146,6 @@ public:
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods["set_depth"];
-
 				if (method)
 					return method->Invoke<void>(this, depth);
 			}
