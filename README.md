@@ -7,6 +7,7 @@
 > - [X] Camera
 > - [X] Transform
 > - [X] Component
+> - [X] Object (Unity)
 > - [ ] LayerMask
 > - [ ] Rigidbody
 > - [ ] Physics
