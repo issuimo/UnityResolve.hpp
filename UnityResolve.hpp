@@ -397,7 +397,7 @@ public:
 
 														   const void* table = Invoke<void*>("mono_image_get_table_info", image, 2);
 														   const int count = Invoke<int>("mono_table_info_get_rows", table);
-														   v[assembly->name] = assembly;
+														   v[assembly->name + ".dll"] = assembly;
 
 														   int iClass{};
 														   for (int i = 0; i < count; i++) {
@@ -1230,6 +1230,16 @@ public:
 
 				if (method)
 					return method->Invoke<Transform*>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto ToString() -> std::string {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Object"]->methods["get_name"];
+
+				if (method)
+					return method->Invoke<String*>(this)->ToString();
 				throw std::logic_error("nullptr");
 			}
 		};
