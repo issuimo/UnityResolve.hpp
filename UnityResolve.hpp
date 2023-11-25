@@ -206,6 +206,17 @@ public:
 		
 	}
 
+	static auto ThreadDetach() -> void {
+		if (mode_ == Mode::Il2cpp) {
+			Invoke<void*>("il2cpp_thread_detach", pDomain);
+		}
+		else {
+			Invoke<void*>("mono_thread_detach", pDomain);
+			Invoke<void*>("mono_jit_thread_detach", pDomain);
+		}
+
+	}
+
 	static auto Init(const HMODULE hmodule, const Mode mode = Mode::Auto) -> void {
 		mode_    = mode;
 		hmodule_ = hmodule;
