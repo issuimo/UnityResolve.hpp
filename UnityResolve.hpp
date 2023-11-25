@@ -1244,6 +1244,18 @@ public:
 			}
 		};
 
+		struct UnityObject {
+			auto ToString() -> std::string {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Object"]->methods["get_name"];
+
+				if (method)
+					return method->Invoke<String*>(this)->ToString();
+				throw std::logic_error("nullptr");
+			}
+		};
+
 		struct LayerMask {
 			
 		};
