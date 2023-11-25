@@ -82,7 +82,7 @@ public:
 			static Method* pMethod;
 
 			if (!pMethod)
-				pMethod = assembly["UnityEngine.CoreModule"]->classes["Object"]->methods[mode_ == Mode::Il2cpp ? "FindObjectsOfType" : "FindObjectsOfTypeAll"];
+				pMethod = assembly["UnityEngine.CoreModule.dll"]->classes["Object"]->methods[mode_ == Mode::Il2cpp ? "FindObjectsOfType" : "FindObjectsOfTypeAll"];
 			
 			if (pMethod) {
 				std::vector<T> rs{};
@@ -224,35 +224,30 @@ public:
 		if (mode_ == Mode::Il2cpp) {
 			pDomain = Invoke<void*>("il2cpp_domain_get");
 			Invoke<void*>("il2cpp_thread_attach", pDomain);
-
 			size_t     nrofassemblies = 0;
 			const auto assemblies     = Invoke<void**>("il2cpp_domain_get_assemblies", pDomain, &nrofassemblies);
 			for (auto i = 0; i < nrofassemblies; i++) {
 				const auto ptr = assemblies[i];
 				if (ptr == nullptr)
-					return;
-
+					continue;
 				const auto assembly = new Assembly{
-					.address = ptr, .name = Invoke<const char*>("il2cpp_class_get_assemblyname", ptr)
+					.address = ptr
 				};
-				UnityResolve::assembly[assembly->name] = assembly;
-
 				const void* image = Invoke<void*>("il2cpp_assembly_get_image", ptr);
 				assembly->file    = Invoke<const char*>("il2cpp_image_get_filename", image);
+				assembly->name    = Invoke<const char*>("il2cpp_image_get_name", image);
 				const int count   = Invoke<int>("il2cpp_image_get_class_count", image);
-
+				UnityResolve::assembly[assembly->name] = assembly;
 				int iClass{ 0 };
 				for (int i = 0; i < count; i++) {
 					const auto pClass = Invoke<void*>("il2cpp_image_get_class", image, i);
 					if (pClass == nullptr)
 						continue;
-
 					const auto pAClass = new Class();
 					pAClass->classinfo = pClass;
 					pAClass->name      = Invoke<const char*>("il2cpp_class_get_name", pClass);
 					if (const auto pPClass = Invoke<void*>("il2cpp_class_get_parent", pClass))
 						pAClass->parent = Invoke<const char*>("il2cpp_class_get_name", pPClass);
-
 					pAClass->namespaze               = Invoke<const char*>("il2cpp_class_get_namespace", pClass);
 					if (!assembly->classes.contains(pAClass->name)) {
 						assembly->classes[pAClass->name] = pAClass;
@@ -261,7 +256,6 @@ public:
 						iClass++;
 						assembly->classes[pAClass->name + std::to_string(iClass)] = pAClass;
 					}
-
 					void* iter = nullptr;
 					void* field;
 					do {
@@ -282,7 +276,6 @@ public:
 					}
 					while (field);
 					iter = nullptr;
-
 					int iMethod{0};
 					do {
 						if ((field = Invoke<void*>("il2cpp_class_get_methods", pClass, &iter))) {
@@ -307,9 +300,7 @@ public:
 								iMethod++;
 								pAClass->methods[pMethod->name + std::to_string(iMethod)] = pMethod;
 							}
-
 							const auto argCount = Invoke<int>("il2cpp_method_get_param_count", field);
-
 							for (int index = 0; index < argCount; index++) {
 								pMethod->args[Invoke<const char*>("il2cpp_method_get_param_name", field, index)] = new
 									Type{
@@ -325,7 +316,6 @@ public:
 					iMethod = 0;
 					const void* i_class{};
 					const void* iiter{};
-
 					do {
 						if ((i_class = Invoke<void*>("il2cpp_class_get_interfaces", pClass, &iiter))) {
 							do {
@@ -345,7 +335,6 @@ public:
 								}
 							} while (field);
 							iter = nullptr;
-
 							do {
 								if ((field = Invoke<void*>("il2cpp_class_get_methods", i_class, &iter))) {
 									int        fFlags{};
@@ -369,9 +358,7 @@ public:
 										iMethod++;
 										pAClass->methods[pMethod->name + std::to_string(iMethod)] = pMethod;
 									}
-
 									const auto argCount = Invoke<int>("il2cpp_method_get_param_count", field);
-
 									for (int index = 0; index < argCount; index++) {
 										pMethod->args[Invoke<const char*>("il2cpp_method_get_param_name", field, index)] = new
 											Type{
@@ -381,6 +368,7 @@ public:
 										};
 									}
 								}
+								
 							} while (field);
 							iter = nullptr;
 							iMethod = 0;
@@ -1001,15 +989,15 @@ public:
 				}
 			}
 
-			auto ToVector() -> std::vector<Type> {
-				std::vector<Type> rs{};
+			auto ToVector() -> std::vector<T> {
+				std::vector<T> rs{};
 				rs.reserve(this->max_length);
 				for (int i = 0; i < this->max_length; i++)
 					rs.push_back(this->At(i));
 				return rs;
 			}
 
-			static auto New(const Class* kalss, const std::uintptr_t size) -> String* {
+			static auto New(const Class* kalss, const std::uintptr_t size) -> Array* {
 				if (mode_ == Mode::Il2cpp) {
 					return UnityResolve::Invoke<Array*, void*, std::uintptr_t>("il2cpp_array_new", kalss->classinfo, size);
 				}
@@ -1089,17 +1077,55 @@ public:
 			static auto GetMain() -> Camera* {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule"]->classes["Camera"]->methods["get_main"];
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods["get_main"];
 
 				if (method)
 					return method->Invoke<Camera*>();
 				throw std::logic_error("nullptr");
 			}
 
+			static auto GetCurrent() -> Camera* {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods["get_current"];
+
+				if (method)
+					return method->Invoke<Camera*>();
+				throw std::logic_error("nullptr");
+			}
+
+			static auto GetAllCount() -> int {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods["get_allCamerasCount"];
+
+				if (method)
+					return method->Invoke<int>();
+				throw std::logic_error("nullptr");
+			}
+
+			static auto GetAllCamera() -> std::vector<Camera*> {
+				static Method* method;
+				static Class* klass;
+
+				if (!method || !klass) {
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods["GetAllCameras"];
+					klass = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"];
+				}
+
+				if (method && klass) {
+					const auto array = Array<Camera*>::New(klass, GetAllCount());
+					method->Invoke<int>(array);
+					return array->ToVector();
+				}
+
+				throw std::logic_error("nullptr");
+			}
+
 			auto GetDepth() -> float {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule"]->classes["Camera"]->methods["get_depth"];
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods["get_depth"];
 
 				if (method)
 					return method->Invoke<float>(this);
@@ -1109,7 +1135,7 @@ public:
 			auto SetDepth(const float depth) -> void {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule"]->classes["Camera"]->methods["set_depth"];
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods["set_depth"];
 
 				if (method)
 					return method->Invoke<void>(this, depth);
@@ -1118,7 +1144,7 @@ public:
 			auto WorldToScreenPoint(const Vector3& position, const Eye eye) -> Vector3 {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule"]->classes["Camera"]->methods[mode_ == Mode::Mono ? "WorldToScreenPoint_Injected" : "WorldToScreenPoint"];
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods[mode_ == Mode::Mono ? "WorldToScreenPoint_Injected" : "WorldToScreenPoint"];
 				if (mode_ == Mode::Mono) {
 					Vector3 vec3{};
 					method->Invoke<void>(this, position, eye, &vec3);
@@ -1132,7 +1158,7 @@ public:
 			auto ScreenToWorldPoint(const Vector3& position, const Eye eye) -> Vector3 {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule"]->classes["Camera"]->methods[mode_ == Mode::Mono ? "ScreenToWorldPoint_Injected" : "ScreenToWorldPoint"];
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods[mode_ == Mode::Mono ? "ScreenToWorldPoint_Injected" : "ScreenToWorldPoint"];
 				if (mode_ == Mode::Mono) {
 					Vector3 vec3{};
 					method->Invoke<void>(this, position, eye, &vec3);
@@ -1148,7 +1174,7 @@ public:
 			auto GetPosition() -> Vector3 {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "get_position_Injected" : "get_position"];
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "get_position_Injected" : "get_position"];
 				if (mode_ == Mode::Mono) {
 					Vector3 vec3{};
 					if (method)
@@ -1163,7 +1189,7 @@ public:
 			auto SetPosition(const Vector3& position) -> Vector3 {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "set_position_Injected" : "set_position"];
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "set_position_Injected" : "set_position"];
 				if (mode_ == Mode::Mono) {
 					Vector3 vec3{};
 					if (method)
@@ -1178,7 +1204,7 @@ public:
 			auto GetChildCount() -> int {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule"]->classes["Transform"]->methods["get_childCount"];
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods["get_childCount"];
 
 				if (method)
 					return method->Invoke<int>(this);
@@ -1188,7 +1214,7 @@ public:
 			auto GetChild(const int index) -> Transform* {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule"]->classes["Transform"]->methods["GetChild"];
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods["GetChild"];
 
 				if (method)
 					return method->Invoke<Transform*>(this, index);
@@ -1200,7 +1226,7 @@ public:
 			auto GetTransform() -> Transform* {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule"]->classes["Component"]->methods["get_transform"];
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Component"]->methods["get_transform"];
 
 				if (method)
 					return method->Invoke<Transform*>(this);
