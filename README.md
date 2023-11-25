@@ -48,10 +48,13 @@ UnityResolve::Init(GetModuleHandle(L"GameAssembly.dll | mono.dll"), UnityResolve
 > - Mode::Mono
 > - Mode::Auto
 
-#### 附加线程 (Thread Attach)
+#### 附加线程 (Thread Attach / Detach)
 ``` c++
 // C# GC Attach
 UnityResolve::ThreadAttach();
+
+// C# GC Detach
+UnityResolve::ThreadDetach();
 ```
 
 #### 获取函数地址及调用 (Obtaining Function Addresses and Invoking)
