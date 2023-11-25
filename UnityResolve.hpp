@@ -1137,7 +1137,6 @@ public:
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods["get_depth"];
-
 				if (method)
 					return method->Invoke<float>(this);
 				throw std::logic_error("nullptr");
@@ -1147,7 +1146,6 @@ public:
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods["set_depth"];
-
 				if (method)
 					return method->Invoke<void>(this, depth);
 			}
@@ -1155,12 +1153,7 @@ public:
 			auto WorldToScreenPoint(const Vector3& position, const Eye eye) -> Vector3 {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods[mode_ == Mode::Mono ? "WorldToScreenPoint_Injected" : "WorldToScreenPoint"];
-				if (mode_ == Mode::Mono) {
-					Vector3 vec3{};
-					method->Invoke<void>(this, position, eye, &vec3);
-					return vec3;
-				}
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods[ "WorldToScreenPoint"];
 				if (method)
 					return method->Invoke<Vector3>(this, position, eye);
 				throw std::logic_error("nullptr");
@@ -1169,12 +1162,7 @@ public:
 			auto ScreenToWorldPoint(const Vector3& position, const Eye eye) -> Vector3 {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods[mode_ == Mode::Mono ? "ScreenToWorldPoint_Injected" : "ScreenToWorldPoint"];
-				if (mode_ == Mode::Mono) {
-					Vector3 vec3{};
-					method->Invoke<void>(this, position, eye, &vec3);
-					return vec3;
-				}
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods["ScreenToWorldPoint"];
 				if (method)
 					return method->Invoke<Vector3>(this, position, eye);
 				throw std::logic_error("nullptr");
@@ -1185,13 +1173,7 @@ public:
 			auto GetPosition() -> Vector3 {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "get_position_Injected" : "get_position"];
-				if (mode_ == Mode::Mono) {
-					Vector3 vec3{};
-					if (method)
-						method->Invoke<void>(this, &vec3);
-					return vec3;
-				}
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods["get_position"];
 				if (method)
 					return method->Invoke<Vector3>(this);
 				return {};
@@ -1200,13 +1182,7 @@ public:
 			auto SetPosition(const Vector3& position) -> Vector3 {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "set_position_Injected" : "set_position"];
-				if (mode_ == Mode::Mono) {
-					Vector3 vec3{};
-					if (method)
-						method->Invoke<void>(this, &vec3);
-					return vec3;
-				}
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods["set_position"];
 				if (method)
 					return method->Invoke<Vector3>(this, position);
 				throw std::logic_error("nullptr");
