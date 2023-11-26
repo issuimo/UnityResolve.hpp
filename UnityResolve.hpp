@@ -699,6 +699,34 @@ public:
 
 	class UnityType final {
 	public:
+		struct Vector3;
+		struct Camera;
+		struct Transform;
+		struct Component;
+		struct UnityObject;
+		struct LayerMask;
+		struct Rigidbody;
+		struct Physics;
+		struct GameObject;
+		struct Collider;
+		struct Vector4;
+		struct Vector2;
+		struct Quaternion;
+		struct Bounds;
+		struct Plane;
+		struct Ray;
+		struct Rect;
+		struct Color;
+		struct Matrix4x4;
+		template<typename T>
+		struct Array;
+		struct String;
+		struct Object;
+		template<typename T>
+		struct List;
+		template<typename TKey, typename TValue>
+		struct Dictionary;
+
 		struct Vector3 {
 			float x, y, z;
 
@@ -1145,7 +1173,36 @@ public:
 			}
 		};
 
-		struct Camera {
+		struct Component : UnityObject {
+			auto GetTransform() -> Transform* {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Component"]->methods["get_transform"];
+				if (method)
+					return method->Invoke<Transform*>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetGameObject() -> GameObject* {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Component"]->methods["get_gameObject"];
+				if (method)
+					return method->Invoke<GameObject*>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto ToString() -> std::string {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Component"]->methods["get_tag"];
+				if (method)
+					return method->Invoke<String*>(this)->ToString();
+				throw std::logic_error("nullptr");
+			}
+		};
+
+		struct Camera : Component {
 			enum class Eye : int {
 				Left,
 				Right,
@@ -1246,7 +1303,7 @@ public:
 			}
 		};
 		 
-		struct Transform {
+		struct Transform : Component {
 			auto GetPosition() -> Vector3 {
 				static Method* method;
 				if (!method)
@@ -1436,35 +1493,6 @@ public:
 						rs.push_back(array->At(i));
 					return rs;
 				}
-				throw std::logic_error("nullptr");
-			}
-		};
-
-		struct Component : UnityObject {
-			auto GetTransform() -> Transform* {
-				static Method* method;
-				if (!method)
-					method = assembly["UnityEngine.CoreModule.dll"]->classes["Component"]->methods["get_transform"];
-				if (method)
-					return method->Invoke<Transform*>(this);
-				throw std::logic_error("nullptr");
-			}
-
-			auto GetGameObject() -> GameObject* {
-				static Method* method;
-				if (!method)
-					method = assembly["UnityEngine.CoreModule.dll"]->classes["Component"]->methods["get_gameObject"];
-				if (method)
-					return method->Invoke<GameObject*>(this);
-				throw std::logic_error("nullptr");
-			}
-
-			auto ToString() -> std::string {
-				static Method* method;
-				if (!method)
-					method = assembly["UnityEngine.CoreModule.dll"]->classes["Component"]->methods["get_tag"];
-				if (method)
-					return method->Invoke<String*>(this)->ToString();
 				throw std::logic_error("nullptr");
 			}
 		};
