@@ -13,8 +13,6 @@
 > - [X] Physics
 > - [X] GameObject
 > - [X] Collider
-> - [ ] Animation
-> - [ ] BoxCollider
 > - [X] Vector4
 > - [X] Vector3
 > - [X] Vector2
