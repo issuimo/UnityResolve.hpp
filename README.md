@@ -8,9 +8,11 @@
 > - [X] Transform
 > - [X] Component
 > - [X] Object (Unity)
-> - [ ] LayerMask
-> - [ ] Rigidbody
-> - [ ] Physics
+> - [X] LayerMask
+> - [X] Rigidbody
+> - [X] Physics
+> - [X] GameObject
+> - [X] Collider
 > - [ ] Animation
 > - [ ] BoxCollider
 > - [X] Vector4
