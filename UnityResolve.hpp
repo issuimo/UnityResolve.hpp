@@ -1495,6 +1495,24 @@ public:
 				}
 				throw std::logic_error("nullptr");
 			}
+
+			auto GetTransform() -> Transform* {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["GameObject"]->methods["get_transform"];
+				if (method)
+					return method->Invoke<Transform*>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetComponent() -> Component* {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["GameObject"]->methods["GetComponent3"];
+				if (method)
+					return method->Invoke<Component*>(this, assembly["UnityEngine.CoreModule.dll"]->classes["Component"]->GetType().GetObject());
+				throw std::logic_error("nullptr");
+			}
 		};
 
 		struct LayerMask : Object {
