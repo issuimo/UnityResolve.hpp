@@ -101,6 +101,14 @@ public:
 
 			throw std::logic_error("FindObjectsOfType nullptr");
 		}
+
+		template<typename T>
+		T* New() {
+			if (mode_ == Mode::Il2cpp) {
+				return Invoke<void*, void*>("il2cpp_object_new", classinfo);
+			}
+			return Invoke<void*, void*, void*>("mono_object_new", pDomain, classinfo);
+		}
 	};
 
 	struct Field final {
@@ -153,8 +161,9 @@ public:
 		template<typename Return, typename... Args>
 		auto Invoke(Args... args) -> Return {
 			Compile();
-			if (function)
+			if (function) {
 				return static_cast<Return(UNITY_CALLING_CONVENTION)(Args...)>(function)(args...);
+			}
 			throw std::logic_error("nullptr");
 		}
 
@@ -163,12 +172,30 @@ public:
 				function = UnityResolve::Invoke<void*>("mono_compile_method", address);
 		}
 
-		template<typename Return>
-		auto RuntimeInvoke(void* obj, void** args) -> Return* {
-			if (mode_ == Mode::Il2cpp) {
-				return static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, args, nullptr));
+		template<typename Return, typename Obj, typename... Args>
+		auto RuntimeInvoke(Obj* obj, Args... args) -> Return {
+			void* exc{};
+			void* argArray[sizeof...(Args) + 1];
+			if (sizeof...(Args) > 0) {
+				size_t index = 0;
+				((argArray[index++] = static_cast<void*>(&args)), ...);
 			}
-			return static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, args, nullptr));
+
+			if (mode_ == Mode::Il2cpp) {
+				if constexpr (std::is_same_v<Return, void>) {
+					UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc);
+					return;
+				}
+				else
+					return *static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc));
+			}
+			
+			if constexpr (std::is_same_v<Return, void>) {
+				UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc);
+				return;
+			}
+			else
+				return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
 		}
 
 		template<typename Return, typename... Args>
@@ -891,7 +918,12 @@ public:
 
 			struct MonitorData* monitor{ nullptr };
 
-			[[nodiscard]] auto GetClass() const -> void* { return this->Il2CppClass.klass; }
+			[[nodiscard]] auto GetClass() const -> std::string {
+				if (mode_ == Mode::Il2cpp) {
+					return Invoke<const char*>("il2cpp_class_get_name", Invoke<void*>("il2cpp_object_get_class", this));
+				}
+				return Invoke<const char*>("mono_class_get_name", Invoke<void*>("mono_object_get_class", this));
+			}
 		};
 
 		struct String : Object {
@@ -940,11 +972,11 @@ public:
 				return reinterpret_cast<uintptr_t>(&vector);
 			}
 
-			auto operator[](unsigned int m_uIndex) -> T& {
+			auto operator[](const unsigned int m_uIndex) -> T& {
 				return *reinterpret_cast<T*>(GetData() + sizeof(T) * m_uIndex);
 			}
 
-			auto At(unsigned int m_uIndex) -> T& {
+			auto At(const unsigned int m_uIndex) -> T& {
 				return operator[](m_uIndex);
 			}
 
@@ -977,7 +1009,7 @@ public:
 				--max_length;
 			}
 
-			auto RemoveRange(unsigned int m_uIndex, unsigned int m_uCount) -> void {
+			auto RemoveRange(const unsigned int m_uIndex, unsigned int m_uCount) -> void {
 				if (m_uCount == 0)
 					m_uCount = 1;
 
@@ -1021,6 +1053,10 @@ public:
 			Array<Type>* pList;
 
 			auto ToArray() -> Array<Type>* { return pList; }
+
+			static auto New(const Class* kalss, const std::uintptr_t size) -> List* {
+				pList = Array<Type>::New(kalss, size);
+			}
 		};
 
 		template<typename TKey, typename TValue>
@@ -1075,6 +1111,37 @@ public:
 
 			auto operator[](const TKey tKey) const -> TValue {
 				return GetValueByKey(tKey);
+			}
+		};
+
+		struct UnityObject : Object {
+			void* m_CachedPtr;
+
+			auto ToString() -> std::string {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Object"]->methods["get_name"];
+				if (method)
+					return method->Invoke<String*>(this)->ToString();
+				throw std::logic_error("nullptr");
+			}
+
+			static auto Instantiate(UnityObject* original) -> UnityObject* {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Object"]->methods["Instantiate2"];
+				if (method)
+					return method->Invoke<UnityObject*>(original);
+				throw std::logic_error("nullptr");
+			}
+
+			static auto Destroy(UnityObject* original) -> void {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Object"]->methods["Destroy9"];
+				if (method)
+					return method->Invoke<void>(original);
+				throw std::logic_error("nullptr");
 			}
 		};
 
@@ -1154,8 +1221,8 @@ public:
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods[mode_ == Mode::Mono ? "WorldToScreenPoint_Injected" : "WorldToScreenPoint"];
-				if (mode_ == Mode::Mono) {
-					Vector3 vec3{};
+				if (mode_ == Mode::Mono && method) {
+					const Vector3 vec3{};
 					method->Invoke<void>(this, position, eye, &vec3);
 					return vec3;
 				}
@@ -1168,8 +1235,8 @@ public:
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.CoreModule.dll"]->classes["Camera"]->methods[mode_ == Mode::Mono ? "ScreenToWorldPoint_Injected" : "ScreenToWorldPoint"];
-				if (mode_ == Mode::Mono) {
-					Vector3 vec3{};
+				if (mode_ == Mode::Mono && method) {
+					const Vector3 vec3{};
 					method->Invoke<void>(this, position, eye, &vec3);
 					return vec3;
 				}
@@ -1184,10 +1251,9 @@ public:
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "get_position_Injected" : "get_position"];
-				if (mode_ == Mode::Mono) {
-					Vector3 vec3{};
-					if (method)
-						method->Invoke<void>(this, &vec3);
+				if (mode_ == Mode::Mono && method) {
+					const Vector3 vec3{};
+					method->Invoke<void>(this, &vec3);
 					return vec3;
 				}
 				if (method)
@@ -1195,18 +1261,119 @@ public:
 				return {};
 			}
 
-			auto SetPosition(const Vector3& position) -> Vector3 {
+			auto SetPosition(const Vector3& position) -> void {
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "set_position_Injected" : "set_position"];
-				if (mode_ == Mode::Mono) {
-					Vector3 vec3{};
-					if (method)
-						method->Invoke<void>(this, &vec3);
+				if (mode_ == Mode::Mono && method) {
+					return method->Invoke<void>(this, &position);
+				}
+				if (method)
+					return method->Invoke<void>(this, position);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetRotation() -> Quaternion {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "get_rotation_Injected" : "get_rotation"];
+				if (mode_ == Mode::Mono && method) {
+					const Quaternion vec3{};
+					method->Invoke<void>(this, &vec3);
 					return vec3;
 				}
 				if (method)
-					return method->Invoke<Vector3>(this, position);
+					return method->Invoke<Quaternion>(this);
+				return {};
+			}
+
+			auto SetRotation(const Quaternion& position) -> void {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "set_rotation_Injected" : "set_rotation"];
+				if (mode_ == Mode::Mono && method) {
+					return method->Invoke<void>(this, &position);
+				}
+				if (method)
+					return method->Invoke<void>(this, position);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetLocalPosition() -> Vector3 {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "get_localPosition_Injected" : "get_localPosition"];
+				if (mode_ == Mode::Mono && method) {
+					const Vector3 vec3{};
+					method->Invoke<void>(this, &vec3);
+					return vec3;
+				}
+				if (method)
+					return method->Invoke<Vector3>(this);
+				return {};
+			}
+
+			auto SetLocalPosition(const Vector3& position) -> void {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "set_localPosition_Injected" : "set_localPosition"];
+				if (mode_ == Mode::Mono && method) {
+					return method->Invoke<void>(this, &position);
+				}
+				if (method)
+					return method->Invoke<void>(this, position);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetLocalRotation() -> Quaternion {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "get_localRotation_Injected" : "get_localRotation"];
+				if (mode_ == Mode::Mono && method) {
+					const Quaternion vec3{};
+					method->Invoke<void>(this, &vec3);
+					return vec3;
+				}
+				if (method)
+					return method->Invoke<Quaternion>(this);
+				return {};
+			}
+
+			auto SetLocalRotation(const Quaternion& position) -> void {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "set_localRotation_Injected" : "set_localRotation"];
+				if (mode_ == Mode::Mono && method) {
+					return method->Invoke<void>(this, &position);
+				}
+				if (method)
+					return method->Invoke<void>(this, position);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetLocalScale() -> Vector3 {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "get_localScale_Injected" : "get_localScale"];
+				if (mode_ == Mode::Mono && method) {
+					const Vector3 vec3{};
+					method->Invoke<void>(this, &vec3);
+					return vec3;
+				}
+				if (method)
+					return method->Invoke<Vector3>(this);
+				return {};
+			}
+
+			auto SetLocalScale(const Vector3& position) -> void {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods[mode_ == Mode::Mono ? "set_localScale_Injected" : "set_localScale"];
+				if (mode_ == Mode::Mono && method) {
+					return method->Invoke<void>(this, &position);
+				}
+				if (method)
+					return method->Invoke<void>(this, position);
 				throw std::logic_error("nullptr");
 			}
 
@@ -1214,7 +1381,6 @@ public:
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods["get_childCount"];
-
 				if (method)
 					return method->Invoke<int>(this);
 				throw std::logic_error("nullptr");
@@ -1224,53 +1390,196 @@ public:
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods["GetChild"];
-
 				if (method)
 					return method->Invoke<Transform*>(this, index);
 				throw std::logic_error("nullptr");
 			}
-		};
 
-		struct Component {
-			auto GetTransform() -> Transform* {
+			auto GetRoot() -> Transform* {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule.dll"]->classes["Component"]->methods["get_transform"];
-
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods["GetRoot"];
 				if (method)
 					return method->Invoke<Transform*>(this);
 				throw std::logic_error("nullptr");
 			}
 
+			auto GetParent() -> Transform* {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Transform"]->methods["GetParent"];
+				if (method)
+					return method->Invoke<Transform*>(this);
+				throw std::logic_error("nullptr");
+			}
+		};
+
+		struct GameObject {
+			static auto Create(GameObject* obj, const std::string& name) -> void {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["GameObject"]->methods["Internal_CreateGameObject"];
+				if (method)
+					method->Invoke<void, GameObject*, String*>(obj, UnityType::String::New(name));
+				throw std::logic_error("nullptr");
+			}
+
+			static auto FindGameObjectsWithTag(const std::string& name) -> std::vector<GameObject*> {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["GameObject"]->methods["FindGameObjectsWithTag"];
+				if (method) {
+					std::vector<GameObject*> rs{};
+					const auto array = method->Invoke<UnityType::Array<GameObject*>*, String*>(UnityType::String::New(name));
+					rs.reserve(array->max_length);
+					for (int i = 0; i < array->max_length; i++)
+						rs.push_back(array->At(i));
+					return rs;
+				}
+				throw std::logic_error("nullptr");
+			}
+		};
+
+		struct Component : UnityObject {
+			auto GetTransform() -> Transform* {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Component"]->methods["get_transform"];
+				if (method)
+					return method->Invoke<Transform*>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetGameObject() -> GameObject* {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Component"]->methods["get_gameObject"];
+				if (method)
+					return method->Invoke<GameObject*>(this);
+				throw std::logic_error("nullptr");
+			}
+
 			auto ToString() -> std::string {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule.dll"]->classes["Object"]->methods["get_name"];
-
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Component"]->methods["get_tag"];
 				if (method)
 					return method->Invoke<String*>(this)->ToString();
 				throw std::logic_error("nullptr");
 			}
 		};
 
-		struct UnityObject {
-			auto ToString() -> std::string {
+		struct LayerMask : Object {
+			int m_Mask;
+
+			static auto NameToLayer(std::string layerName) -> int {
 				static Method* method;
 				if (!method)
-					method = assembly["UnityEngine.CoreModule.dll"]->classes["Object"]->methods["get_name"];
-
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["LayerMask"]->methods["NameToLayer"];
 				if (method)
-					return method->Invoke<String*>(this)->ToString();
+					return method->Invoke<int>(String::New(layerName));
+				throw std::logic_error("nullptr");
+			}
+
+			static auto LayerToName(int layer) -> std::string {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["LayerMask"]->methods["LayerToName"];
+				if (method)
+					return method->Invoke<String*>(layer)->ToString();
 				throw std::logic_error("nullptr");
 			}
 		};
 
-		struct LayerMask {
-			
+		struct Rigidbody : Component {
+			auto GetDetectCollisions() -> bool {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.PhysicsModule.dll"]->classes["Rigidbody"]->methods["get_detectCollisions"];
+				if (method)
+					return method->Invoke<bool>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetDetectCollisions(bool value) -> void {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.PhysicsModule.dll"]->classes["Rigidbody"]->methods["set_detectCollisions"];
+				if (method)
+					return method->Invoke<void>(this, value);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetVelocity() -> Vector3 {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.PhysicsModule.dll"]->classes["Rigidbody"]->methods[mode_ == Mode::Mono ? "get_velocity_Injected" : "get_velocity"];
+				if (mode_ == Mode::Mono && method) {
+					Vector3 vector;
+					method->Invoke<void>(this, &vector);
+					return vector;
+				}
+				if (method)
+					return method->Invoke<Vector3>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto SetVelocity(Vector3 value) -> void {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.PhysicsModule.dll"]->classes["Rigidbody"]->methods[mode_ == Mode::Mono ? "set_velocity_Injected" : "set_velocity"];
+				if (mode_ == Mode::Mono && method)
+					return method->Invoke<void>(this, &value);
+				if (method)
+					return method->Invoke<void>(this, value);
+				throw std::logic_error("nullptr");
+			}
 		};
 
-		struct Rigidbody {
-			
+		struct Collider {
+			static auto GetBounds() -> std::vector<Bounds*> {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.CoreModule.dll"]->classes["Collider"]->methods["get_bounds"];
+				if (method) {
+					std::vector<Bounds*> rs{};
+					const auto array = method->Invoke<UnityType::Array<Bounds*>*>();
+					rs.reserve(array->max_length);
+					for (int i = 0; i < array->max_length; i++)
+						rs.push_back(array->At(i));
+					return rs;
+				}
+				throw std::logic_error("nullptr");
+			}
+		};
+
+		struct Physics {
+			static auto Linecast(const Vector3 start, const Vector3 end) -> bool {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.PhysicsModule.dll"]->classes["Physics"]->methods["Linecast"];
+				if (method)
+					return method->Invoke<bool>(start, end);
+				throw std::logic_error("nullptr");
+			}
+
+			static auto Raycast(const Vector3 origin, const Vector3 direction, const float maxDistance) -> bool {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.PhysicsModule.dll"]->classes["Physics"]->methods["Raycast3"];
+				if (method)
+					return method->Invoke<bool>(origin, direction, maxDistance);
+				throw std::logic_error("nullptr");
+			}
+
+			static auto IgnoreCollision(Collider* collider1, Collider* collider2) -> void {
+				static Method* method;
+				if (!method)
+					method = assembly["UnityEngine.PhysicsModule.dll"]->classes["Physics"]->methods["IgnoreCollision1"];
+				if (method)
+					return method->Invoke<void>(collider1, collider2);
+				throw std::logic_error("nullptr");
+			}
 		};
 
 	private:
