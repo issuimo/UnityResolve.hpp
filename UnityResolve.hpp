@@ -1529,7 +1529,7 @@ public:
 				throw std::logic_error("nullptr");
 			}
 
-			auto GetDetectCollisions(bool value) -> void {
+			auto SetDetectCollisions(bool value) -> void {
 				static Method* method;
 				if (!method)
 					method = assembly["UnityEngine.PhysicsModule.dll"]->classes["Rigidbody"]->methods["set_detectCollisions"];
