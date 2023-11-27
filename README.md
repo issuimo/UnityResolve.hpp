@@ -2,6 +2,21 @@
 > 有新的功能建议或者Bug可以提交Issues \
 > New feature suggestions or bugs can be submitted as issues.
 
+> 如果在调用Unity函数时发生崩溃情况可以使用以下方法解决
+> If a crash occurs when calling Unity functions, you can use the following methods to resolve it.
+> ``` c++
+> __try {
+>   // your code
+> 
+>   // if error C2712
+>   [&]() {
+>     // your code
+>   }();
+> } __except (EXCEPTION_EXECUTE_HANDLER) {
+>    return;
+> }
+> ```
+
 # UnityResolve.hpp
 > ### 类型 (Type)
 > - [X] Camera
