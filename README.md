@@ -83,7 +83,8 @@ const auto method = pClass->Get<UnityResolve::Method>("Method | 函数名");
                  // pClass->Get<UnityResolve::Method>("Method | 函数名", { "System.String" });
                  // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "System.String" });
                  // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "", "System.String" });
-                 // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "", "System.String", "*" });
+                 // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "System.Int32", "System.String" });
+                 // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "System.Int32", "System.String", "*" });
                  // "*" == ""
 
 const auto functionPtr = method->function;
@@ -92,8 +93,10 @@ const auto method1 = pClass->Get<Method>("method name1 | 函数名称1");
 const auto method2 = pClass->Get<Method>("method name2 | 函数名称2");
 
 method1->Invoke<int>(114, 514, "114514");
+// Invoke<return type>(args...);
 
 const auto ptr = method2->Cast<void, int, bool>();
+// Cast<return type, args...>();
 ptr(114514, true);
 ```
 #### 转存储到文件 (DumpToFile)
