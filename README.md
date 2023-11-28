@@ -76,6 +76,7 @@ UnityResolve::ThreadDetach();
 ``` c++
 const auto assembly = UnityResolve::Get("assembly.dll | 程序集名称.dll");
 const auto pClass   = assembly->Get("className | 类名称");
+                   // assembly->Get("className | 类名称", "*");
                    // assembly->Get("className | 类名称", "namespace | 空间命名");
 
 const auto field  = pClass->Get<UnityResolve::Field>("Field | 变量名");
