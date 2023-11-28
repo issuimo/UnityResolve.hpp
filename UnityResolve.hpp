@@ -4,10 +4,8 @@
 #include <format>
 #include <fstream>
 #include <iostream>
-#include <map>
 #include <mutex>
 #include <string>
-#include <unordered_map>
 #include <vector>
 #include <windows.h>
 
@@ -37,7 +35,7 @@ public:
 		std::string         file;
 		std::vector<Class*> classes;
 
-		auto Get(const std::string& strClass, const std::string& strNamespace = "*") const -> Class* {
+		[[nodiscard]] auto Get(const std::string& strClass, const std::string& strNamespace = "*") const -> Class* {
 			for (const auto pClass : classes) if (pClass->name == strClass && strNamespace == "*" ? true : pClass->namespaze == strNamespace) return pClass;
 			return nullptr;
 		}
@@ -65,6 +63,7 @@ public:
 		template<typename RType>
 		auto Get(const std::string& name, const std::vector<std::string>& args = {}) -> RType* {
 			if constexpr (std::is_same_v<RType, Field>) for (auto pField : fields) if (pField->name == name) return static_cast<RType*>(pField);
+			if constexpr (std::is_same_v<RType, std::int32_t>) for (const auto pField : fields) if (pField->name == name) return static_cast<RType>(pField->offset);
 			if constexpr (std::is_same_v<RType, Method>)
 				for (auto pMethod : methods) {
 					if (pMethod->name == name) {
