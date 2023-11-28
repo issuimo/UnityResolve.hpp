@@ -96,7 +96,7 @@ method1->Invoke<int>(114, 514, "114514");
 // Invoke<return type>(args...);
 
 const auto ptr = method2->Cast<void, int, bool>();
-// Cast<return type, args...>();
+// Cast<return type, args...>(void);
 ptr(114514, true);
 ```
 #### 转存储到文件 (DumpToFile)
@@ -120,6 +120,7 @@ std::vector<T> cppVector = array.ToVector();
 const auto assembly = UnityResolve::Get("assembly.dll | 程序集名称.dll");
 const auto pClass   = assembly->Get("className | 类名称");
 std::vector<Player*> playerVector = pClass->FindObjectsByType<Player*>();
+// FindObjectsByType<return type>(void);
 playerVector.size();
 ```
 #### 世界坐标转屏幕坐标 (WorldToScreenPoint)
