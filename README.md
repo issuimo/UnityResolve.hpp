@@ -74,17 +74,22 @@ UnityResolve::ThreadDetach();
 
 #### 获取函数地址及调用 (Obtaining Function Addresses and Invoking)
 ``` c++
-const auto classes = UnityResolve::assembly["assembly name.dll | 程序集名称.dll"]->classes;
+const auto assembly = UnityResolve::Get("assembly.dll | 程序集名称.dll");
+const auto pClass   = assembly->Get("className | 类名称");
+                   // assembly->Get("className | 类名称", "namespace | 空间命名");
 
-auto klass = classes["class name | 类名称"];
-
-const auto field = klass->Get<UnityResolve::Field>("Field | 变量名");
-const auto method = klass->Get<UnityResolve::Method>("Method | 函数名");
+const auto field  = pClass->Get<UnityResolve::Field>("Field | 变量名");
+const auto method = pClass->Get<UnityResolve::Method>("Method | 函数名");
+                 // pClass->Get<UnityResolve::Method>("Method | 函数名", { "System.String" });
+                 // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "System.String" });
+                 // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "", "System.String" });
+                 // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "", "System.String", "*" });
+                 // "*" == ""
 
 const auto functionPtr = method->function;
 
-const auto method1 = klass->methods["method name1 | 函数名称1"];
-const auto method2 = klass->methods["method name2 | 函数名称2"];
+const auto method1 = pClass->Get<Method>("method name1 | 函数名称1");
+const auto method2 = pClass->Get<Method>("method name2 | 函数名称2");
 
 method1->Invoke<int>(114, 514, "114514");
 
@@ -97,25 +102,25 @@ UnityResolve::DumpToFile("./Dump.cs");
 ```
 #### 创建C#字符串 (Create C# String)
 ``` c++
-auto str = UnityResolve::UnityType::String::New("string | 字符串");
+const auto str     = UnityResolve::UnityType::String::New("string | 字符串");
 std::string cppStr = str.ToString();
 ```
 #### 创建C#数组 (Create C# Array)
 ``` c++
-const auto classes = UnityResolve::assembly["assembly name.dll | 程序集名称.dll"]->classes;
-auto klass = classes["class name | 类名称"];
-auto array = UnityResolve::UnityType::Array::New(klass, size);
+const auto assembly = UnityResolve::Get("assembly.dll | 程序集名称.dll");
+const auto pClass   = assembly->Get("className | 类名称");
+const auto array    = UnityResolve::UnityType::Array::New(pClass, size);
 std::vector<T> cppVector = array.ToVector();
 ```
 #### 获取实例 (Obtaining an instance)
 ``` c++
-const auto ass = UnityResolve::assembly["Assembly-CSharp.dll"];
-const auto klass = ass->classes["Player"];
-std::vector<Player*> playerVector = klass->FindObjectsByType<Player*>();
+const auto assembly = UnityResolve::Get("assembly.dll | 程序集名称.dll");
+const auto pClass   = assembly->Get("className | 类名称");
+std::vector<Player*> playerVector = pClass->FindObjectsByType<Player*>();
 playerVector.size();
 ```
 #### 世界坐标转屏幕坐标 (WorldToScreenPoint)
 ``` c++
 Camera* pCamera = UnityResolve::UnityType::Camera::GetMain();
-Vector3 point = pCamera->WorldToScreenPoint(Vector3, Eye::Left);
+Vector3 point   = pCamera->WorldToScreenPoint(Vector3, Eye::Left);
 ```
