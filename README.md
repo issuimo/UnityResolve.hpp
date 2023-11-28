@@ -79,14 +79,15 @@ const auto pClass   = assembly->Get("className | 类名称");
                    // assembly->Get("className | 类名称", "*");
                    // assembly->Get("className | 类名称", "namespace | 空间命名");
 
-const auto field  = pClass->Get<UnityResolve::Field>("Field | 变量名");
-const auto method = pClass->Get<UnityResolve::Method>("Method | 函数名");
-                 // pClass->Get<UnityResolve::Method>("Method | 函数名", { "System.String" });
-                 // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "System.String" });
-                 // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "", "System.String" });
-                 // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "System.Int32", "System.String" });
-                 // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "System.Int32", "System.String", "*" });
-                 // "*" == ""
+const auto field       = pClass->Get<UnityResolve::Field>("Field | 变量名");
+const auto fieldOffset = pClass->Get<std::int32_t>("Field | 变量名");
+const auto method      = pClass->Get<UnityResolve::Method>("Method | 函数名");
+                      // pClass->Get<UnityResolve::Method>("Method | 函数名", { "System.String" });
+                      // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "System.String" });
+                      // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "", "System.String" });
+                      // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "System.Int32", "System.String" });
+                      // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "System.Int32", "System.String", "*" });
+                      // "*" == ""
 
 const auto functionPtr = method->function;
 
