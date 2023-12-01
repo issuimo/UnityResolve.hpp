@@ -2,7 +2,7 @@
 > 有新的功能建议或者Bug可以提交Issues \
 > New feature suggestions or bugs can be submitted as issues.
 
-> Dome \
+> Dome
 > - [Phasmophobia Cheat](https://github.com/issuimo/PhasmophobiaCheat/tree/0.5.0-new)
 
 > 如果在调用Unity函数时发生崩溃情况可以使用以下方法解决 (仅il2cpp)\
