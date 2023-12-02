@@ -76,7 +76,7 @@ UnityResolve::ThreadAttach();
 UnityResolve::ThreadDetach();
 ```
 
-#### 获取函数地址及调用 (Obtaining Function Addresses and Invoking)
+#### 获取函数地址(变量偏移) 及调用(修改/获取) (Get the function address (variable offset) and invoke (modify/get))
 ``` c++
 const auto assembly = UnityResolve::Get("assembly.dll | 程序集名称.dll");
 const auto pClass   = assembly->Get("className | 类名称");
