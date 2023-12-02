@@ -9,10 +9,12 @@
 #include <vector>
 #include <windows.h>
 
+#include "../PlayerList.h"
+
 #ifdef _WIN64
-#define UNITY_CALLING_CONVENTION __fastcall*
+#define UNITY_CALLING_CONVENTION __fastcall
 #elif _WIN32
-#define UNITY_CALLING_CONVENTION __cdecl*
+#define UNITY_CALLING_CONVENTION __cdecl
 #endif
 
 class UnityResolve final {
@@ -66,6 +68,7 @@ public:
 			if constexpr (std::is_same_v<RType, std::int32_t>) for (const auto pField : fields) if (pField->name == name) return static_cast<RType>(pField->offset);
 			if constexpr (std::is_same_v<RType, Method>)
 				for (auto pMethod : methods) {
+					std::string name2 = pMethod->name;
 					if (pMethod->name == name) {
 						if (args.empty()) return static_cast<RType*>(pMethod);
 						if (pMethod->args.size() == args.size()) {
@@ -76,6 +79,16 @@ public:
 				next: continue;
 				}
 			return nullptr;
+		}
+
+		template<typename RType>
+		auto GetFieldValue(void* obj, const std::string& name) -> RType {
+			return *static_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset);
+		}
+
+		template<typename RType>
+		auto SetFieldValue(void* obj, const std::string& name, RType value) -> void {
+			return *static_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset) = value;
 		}
 
 		[[nodiscard]] auto GetType() const -> Type {
@@ -162,7 +175,7 @@ public:
 		template<typename Return, typename... Args>
 		auto Invoke(Args... args) -> Return {
 			Compile();
-			if (function) return static_cast<Return(UNITY_CALLING_CONVENTION)(Args...)>(function)(args...);
+			if (function) return static_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
 			throw std::logic_error("nullptr");
 		}
 
@@ -191,7 +204,7 @@ public:
 		}
 
 		template<typename Return, typename... Args>
-		using MethodPointer = Return(*)(Args...);
+		using MethodPointer = Return(UNITY_CALLING_CONVENTION*)(Args...);
 
 		template<typename Return, typename... Args>
 		auto Cast() -> MethodPointer<Return, Args...> {
@@ -435,19 +448,6 @@ public:
 
 		if (!io) return;
 
-		io << "/*" << "\n" <<
-			R"(*  __  __                      __                  ____                                ___                       )" << "\n" <<
-			R"(* /\ \/\ \              __    /\ \__              /\  _`\                             /\_ \                      )" << "\n" <<
-			R"(* \ \ \ \ \     ___    /\_\   \ \ ,_\   __  __    \ \ \L\ \      __     ____    ___   \//\ \     __  __     __   )" << "\n" <<
-			R"(*  \ \ \ \ \  /' _ `\  \/\ \   \ \ \/  /\ \/\ \    \ \ ,  /    /'__`\  /',__\  / __`\   \ \ \   /\ \/\ \  /'__`\ )" << "\n" <<
-			R"(*   \ \ \_\ \ /\ \/\ \  \ \ \   \ \ \_ \ \ \_\ \    \ \ \\ \  /\  __/ /\__, `\/\ \L\ \   \_\ \_ \ \ \_/ |/\  __/ )" << "\n" <<
-			R"(*    \ \_____\\ \_\ \_\  \ \_\   \ \__\ \/`____ \    \ \_\ \_\\ \____\\/\____/\ \____/   /\____\ \ \___/ \ \____\)" << "\n" <<
-			R"(*     \/_____/ \/_/\/_/   \/_/    \/__/  `/___/> \    \/_/\/ / \/____/ \/___/  \/___/    \/____/  \/__/   \/____/)" << "\n" <<
-			R"(*                                           /\___/                                                               )" << "\n" <<
-			R"(*                                           \/__/                                                                )" << "\n" <<
-			R"(*================================================================================================================)"
-			<< "\n" << R"(*UnityResolve Library By 遂沫 2023/11/18-2023/11/21)" << " Mode:" << (static_cast<char>(mode_) ? "Mono" : "Il2cpp") << "\n*/" << '\n';
-
 		for (const auto& pAssembly : assembly) {
 			io << std::format("Assembly: {}\n", pAssembly->name.empty() ? "" : pAssembly->name);
 			io << std::format("AssemblyFile: {} \n", pAssembly->file.empty() ? "" : pAssembly->file);
@@ -497,7 +497,7 @@ public:
 		// 检查函数是否已经获取地址, 没有则自动获取
 		if (!address_.contains(funcName) || address_[funcName] == nullptr) address_[funcName] = static_cast<void*>(GetProcAddress(hmodule_, funcName.c_str()));
 
-		if (address_[funcName] != nullptr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION)(Args...)>(address_[funcName])(args...);
+		if (address_[funcName] != nullptr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(address_[funcName])(args...);
 		throw std::logic_error("Not find function");
 	}
 
@@ -537,6 +537,9 @@ public:
 		struct List;
 		template<typename TKey, typename TValue>
 		struct Dictionary;
+		struct Behaviour;
+		struct MonoBehaviour;
+		struct CsType;
 
 		struct Vector3 {
 			float x, y, z;
@@ -595,6 +598,62 @@ public:
 				const auto dz = this->z - event.z;
 				return std::sqrt(dx * dx + dy * dy + dz * dz);
 			}
+
+			auto operator*(const float x) -> Vector3 {
+				this->x *= x;
+				this->y *= x;
+				this->z *= x;
+				return *this;
+			}
+
+			auto operator-(const float x) -> Vector3 {
+				this->x -= x;
+				this->y -= x;
+				this->z -= x;
+				return *this;
+			}
+
+			auto operator+(const float x) -> Vector3 {
+				this->x += x;
+				this->y += x;
+				this->z += x;
+				return *this;
+			}
+
+			auto operator/(const float x) -> Vector3 {
+				this->x /= x;
+				this->y /= x;
+				this->z /= x;
+				return *this;
+			}
+
+			auto operator*(const Vector3 x) -> Vector3 {
+				this->x *= x.x;
+				this->y *= x.y;
+				this->z *= x.z;
+				return *this;
+			}
+
+			auto operator-(const Vector3 x) -> Vector3 {
+				this->x -= x.x;
+				this->y -= x.y;
+				this->z -= x.z;
+				return *this;
+			}
+
+			auto operator+(const Vector3 x) -> Vector3 {
+				this->x += x.x;
+				this->y += x.y;
+				this->z += x.z;
+				return *this;
+			}
+
+			auto operator/(const Vector3 x) -> Vector3 {
+				this->x /= x.x;
+				this->y /= x.y;
+				this->z /= x.z;
+				return *this;
+			}
 		};
 
 		struct Vector2 {
@@ -611,6 +670,54 @@ public:
 				const auto dx = this->x - event.x;
 				const auto dy = this->y - event.y;
 				return std::sqrt(dx * dx + dy * dy);
+			}
+
+			auto operator*(const float x) -> Vector2 {
+				this->x *= x;
+				this->y *= x;
+				return *this;
+			}
+
+			auto operator/(const float x) -> Vector2 {
+				this->x /= x;
+				this->y /= x;
+				return *this;
+			}
+
+			auto operator+(const float x) -> Vector2 {
+				this->x += x;
+				this->y += x;
+				return *this;
+			}
+
+			auto operator-(const float x) -> Vector2 {
+				this->x -= x;
+				this->y -= x;
+				return *this;
+			}
+
+			auto operator*(const Vector2 x) -> Vector2 {
+				this->x *= x.x;
+				this->y *= x.y;
+				return *this;
+			}
+
+			auto operator-(const Vector2 x) -> Vector2 {
+				this->x -= x.x;
+				this->y -= x.y;
+				return *this;
+			}
+
+			auto operator+(const Vector2 x) -> Vector2 {
+				this->x += x.x;
+				this->y += x.y;
+				return *this;
+			}
+
+			auto operator/(const Vector2 x) -> Vector2 {
+				this->x /= x.x;
+				this->y /= x.y;
+				return *this;
 			}
 		};
 
@@ -751,9 +858,20 @@ public:
 
 			struct MonitorData* monitor{nullptr};
 
-			[[nodiscard]] auto GetClass() const -> std::string {
-				if (mode_ == Mode::Il2Cpp) return Invoke<const char*>("il2cpp_class_get_name", Invoke<void*>("il2cpp_object_get_class", this));
-				return Invoke<const char*>("mono_class_get_name", Invoke<void*>("mono_object_get_class", this));
+			auto GetType() -> CsType* {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Object")->Get<Method>("GetType");
+				if (method) return method->Invoke<CsType*>(this);
+				throw std::logic_error("nullptr");
+			}
+		};
+
+		struct CsType {
+			auto FormatTypeName() -> std::string {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type")->Get<Method>("FormatTypeName");
+				if (method) return method->Invoke<String*>(this)->ToString();
+				throw std::logic_error("nullptr");
 			}
 		};
 
@@ -1164,6 +1282,18 @@ public:
 				if (method) return method->Invoke<Transform*>(this);
 				throw std::logic_error("nullptr");
 			}
+
+			auto GetLossyScale() -> Vector3 {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_lossyScale_Injected" : "get_lossyScale");
+				if (mode_ == Mode::Mono && method) {
+					const Vector3 vec3{};
+					method->Invoke<void>(this, &vec3);
+					return vec3;
+				}
+				if (method) return method->Invoke<Vector3>(this);
+				return {};
+			}
 		};
 
 		struct GameObject {
@@ -1269,6 +1399,12 @@ public:
 				}
 				throw std::logic_error("nullptr");
 			}
+		};
+
+		struct Behaviour : Component {};
+
+		struct MonoBehaviour : Behaviour {
+			void* m_CancellationTokenSource;
 		};
 
 		struct Physics {
