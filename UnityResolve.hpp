@@ -32,7 +32,7 @@ public:
 	};
 
 	struct Assembly final {
-		void*               address;
+		void* address;
 		std::string         name;
 		std::string         file;
 		std::vector<Class*> classes;
@@ -44,7 +44,7 @@ public:
 	};
 
 	struct Type final {
-		void*       address;
+		void* address;
 		std::string name;
 		int         size;
 
@@ -55,7 +55,7 @@ public:
 	};
 
 	struct Class final {
-		void*                classinfo;
+		void* classinfo;
 		std::string          name;
 		std::string          parent;
 		std::string          namespaze;
@@ -72,7 +72,7 @@ public:
 					if (pMethod->name == name) {
 						if (args.empty()) return static_cast<RType*>(pMethod);
 						if (pMethod->args.size() == args.size()) {
-							for (size_t index{0}; const auto& typeName : args) if (typeName == "*" || typeName.empty() ? false : pMethod->args[index++]->pType->name != typeName) goto next;
+							for (size_t index{ 0 }; const auto & typeName : args) if (typeName == "*" || typeName.empty() ? false : pMethod->args[index++]->pType->name != typeName) goto next;
 							return static_cast<RType*>(pMethod);
 						}
 					}
@@ -83,21 +83,21 @@ public:
 
 		template<typename RType>
 		auto GetFieldValue(void* obj, const std::string& name) -> RType {
-			return *static_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset);
+			return *reinterpret_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset);
 		}
 
 		template<typename RType>
 		auto SetFieldValue(void* obj, const std::string& name, RType value) -> void {
-			return *static_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset) = value;
+			return *reinterpret_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset) = value;
 		}
 
 		[[nodiscard]] auto GetType() const -> Type {
 			if (mode_ == Mode::Il2Cpp) {
 				const auto pUType = Invoke<void*, void*>("il2cpp_class_get_type", classinfo);
-				return {pUType, name, -1};
+				return { pUType, name, -1 };
 			}
 			const auto pUType = Invoke<void*, void*>("mono_class_get_type", classinfo);
-			return {pUType, name, -1};
+			return { pUType, name, -1 };
 		}
 
 		/**
@@ -131,13 +131,13 @@ public:
 	};
 
 	struct Field final {
-		void*        fieldinfo;
+		void* fieldinfo;
 		std::string  name;
-		Type*        type;
-		Class*       klass;
+		Type* type;
+		Class* klass;
 		std::int32_t offset; // If offset is -1, then it's thread static
 		bool         static_field;
-		void*        vTable;
+		void* vTable;
 
 		template<typename T>
 		auto SetValue(T* value) const -> void {
@@ -157,17 +157,17 @@ public:
 	};
 
 	struct Method final {
-		void*        address;
+		void* address;
 		std::string  name;
-		Class*       klass;
-		Type*        return_type;
+		Class* klass;
+		Type* return_type;
 		std::int32_t flags;
 		bool         static_function;
-		void*        function;
+		void* function;
 
 		struct Arg {
 			std::string name;
-			Type*       pType;
+			Type* pType;
 		};
 
 		std::vector<Arg*> args;
@@ -186,7 +186,7 @@ public:
 			void* exc{};
 			void* argArray[sizeof...(Args) + 1];
 			if (sizeof...(Args) > 0) {
-				size_t index        = 0;
+				size_t index = 0;
 				((argArray[index++] = static_cast<void*>(&args)), ...);
 			}
 
@@ -194,13 +194,15 @@ public:
 				if constexpr (std::is_same_v<Return, void>) {
 					UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc);
 					return;
-				} else return *static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc));
+				}
+				else return *static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc));
 			}
 
 			if constexpr (std::is_same_v<Return, void>) {
 				UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc);
 				return;
-			} else return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
+			}
+			else return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
 		}
 
 		template<typename Return, typename... Args>
@@ -231,38 +233,38 @@ public:
 	}
 
 	static auto Init(const HMODULE hmodule, const Mode mode = Mode::Auto) -> void {
-		mode_    = mode;
+		mode_ = mode;
 		hmodule_ = hmodule;
 
 		if (mode == Mode::Auto) {
 			char path[0xFF];
 			GetModuleFileNameA(hmodule, path, 0xFF);
-			const std::string file{path};
+			const std::string file{ path };
 			auto              ret = file.substr(0, file.find_first_of('\\') + 1);
 			if (file.find("mono") != std::string::npos) mode_ = Mode::Mono;
-			else mode_                                        = Mode::Il2Cpp;
+			else mode_ = Mode::Il2Cpp;
 		}
 
 		if (mode_ == Mode::Il2Cpp) {
 			pDomain = Invoke<void*>("il2cpp_domain_get");
 			Invoke<void*>("il2cpp_thread_attach", pDomain);
 			size_t     nrofassemblies = 0;
-			const auto assemblies     = Invoke<void**>("il2cpp_domain_get_assemblies", pDomain, &nrofassemblies);
+			const auto assemblies = Invoke<void**>("il2cpp_domain_get_assemblies", pDomain, &nrofassemblies);
 			for (auto i = 0; i < nrofassemblies; i++) {
 				const auto ptr = assemblies[i];
 				if (ptr == nullptr) continue;
-				const auto  assembly = new Assembly{.address = ptr};
-				const void* image    = Invoke<void*>("il2cpp_assembly_get_image", ptr);
-				assembly->file       = Invoke<const char*>("il2cpp_image_get_filename", image);
-				assembly->name       = Invoke<const char*>("il2cpp_image_get_name", image);
-				const auto count     = Invoke<int>("il2cpp_image_get_class_count", image);
+				const auto  assembly = new Assembly{ .address = ptr };
+				const void* image = Invoke<void*>("il2cpp_assembly_get_image", ptr);
+				assembly->file = Invoke<const char*>("il2cpp_image_get_filename", image);
+				assembly->name = Invoke<const char*>("il2cpp_image_get_name", image);
+				const auto count = Invoke<int>("il2cpp_image_get_class_count", image);
 				UnityResolve::assembly.push_back(assembly);
 				for (auto i = 0; i < count; i++) {
 					const auto pClass = Invoke<void*>("il2cpp_image_get_class", image, i);
 					if (pClass == nullptr) continue;
 					const auto pAClass = new Class();
 					pAClass->classinfo = pClass;
-					pAClass->name      = Invoke<const char*>("il2cpp_class_get_name", pClass);
+					pAClass->name = Invoke<const char*>("il2cpp_class_get_name", pClass);
 					if (const auto pPClass = Invoke<void*>("il2cpp_class_get_parent", pClass)) pAClass->parent = Invoke<const char*>("il2cpp_class_get_name", pPClass);
 					pAClass->namespaze = Invoke<const char*>("il2cpp_class_get_namespace", pClass);
 					assembly->classes.push_back(pAClass);
@@ -270,60 +272,61 @@ public:
 					void* field;
 					do
 						if ((field = Invoke<void*>("il2cpp_class_get_fields", pClass, &iter))) {
-							const auto pField = new Field{.fieldinfo = field, .name = Invoke<const char*>("il2cpp_field_get_name", field), .type = new Type{.address = Invoke<void*>("il2cpp_field_get_type", field)}, .klass = pAClass, .offset = Invoke<int>("il2cpp_field_get_offset", field), .static_field = false, .vTable = nullptr};
+							const auto pField = new Field{ .fieldinfo = field, .name = Invoke<const char*>("il2cpp_field_get_name", field), .type = new Type{.address = Invoke<void*>("il2cpp_field_get_type", field)}, .klass = pAClass, .offset = Invoke<int>("il2cpp_field_get_offset", field), .static_field = false, .vTable = nullptr };
 							int        tSize{};
 							pField->static_field = pField->offset == -1;
-							pField->type->name   = Invoke<const char*>("il2cpp_type_get_name", pField->type->address);
-							pField->type->size   = -1;
+							pField->type->name = Invoke<const char*>("il2cpp_type_get_name", pField->type->address);
+							pField->type->size = -1;
 							pAClass->fields.push_back(pField);
 						} while (field);
-					iter = nullptr;
-					do
-						if ((field = Invoke<void*>("il2cpp_class_get_methods", pClass, &iter))) {
-							int        fFlags{};
-							const auto pMethod = new Method{.address = field, .name = Invoke<const char*>("il2cpp_method_get_name", field), .klass = pAClass, .return_type = new Type{.address = Invoke<void*>("il2cpp_method_get_return_type", field),}, .flags = Invoke<int>("il2cpp_method_get_flags", field, &fFlags)};
-							int        tSize{};
-							pMethod->static_function   = pMethod->flags & 0x10;
-							pMethod->return_type->name = Invoke<const char*>("il2cpp_type_get_name", pMethod->return_type->address);
-							pMethod->return_type->size = -1;
-							pMethod->function          = *static_cast<void**>(field);
-							pAClass->methods.push_back(pMethod);
-							const auto argCount = Invoke<int>("il2cpp_method_get_param_count", field);
-							for (auto index = 0; index < argCount; index++) pMethod->args.push_back(new Method::Arg{Invoke<const char*>("il2cpp_method_get_param_name", field, index), new Type{.address = Invoke<void*>("il2cpp_method_get_param", field, index), .name = Invoke<const char*>("il2cpp_type_get_name", Invoke<void*>("il2cpp_method_get_param", field, index)), .size = -1}});
-						} while (field);
-					iter = nullptr;
-					const void* i_class{};
-					const void* iiter{};
-					do
-						if ((i_class = Invoke<void*>("il2cpp_class_get_interfaces", pClass, &iiter))) {
-							do
-								if ((field = Invoke<void*>("il2cpp_class_get_fields", i_class, &iter))) {
-									const auto pField = new Field{.fieldinfo = field, .name = Invoke<const char*>("il2cpp_field_get_name", field), .type = new Type{.address = Invoke<void*>("il2cpp_field_get_type", field)}, .klass = pAClass, .offset = Invoke<int>("il2cpp_field_get_offset", field), .static_field = false, .vTable = nullptr};
-									int        tSize{};
-									pField->static_field = pField->offset == -1;
-									pField->type->name   = Invoke<const char*>("il2cpp_type_get_name", pField->type->address);
-									pField->type->size   = -1;
-									pAClass->fields.push_back(pField);
-								} while (field);
+						iter = nullptr;
+						do
+							if ((field = Invoke<void*>("il2cpp_class_get_methods", pClass, &iter))) {
+								int        fFlags{};
+								const auto pMethod = new Method{ .address = field, .name = Invoke<const char*>("il2cpp_method_get_name", field), .klass = pAClass, .return_type = new Type{.address = Invoke<void*>("il2cpp_method_get_return_type", field),}, .flags = Invoke<int>("il2cpp_method_get_flags", field, &fFlags) };
+								int        tSize{};
+								pMethod->static_function = pMethod->flags & 0x10;
+								pMethod->return_type->name = Invoke<const char*>("il2cpp_type_get_name", pMethod->return_type->address);
+								pMethod->return_type->size = -1;
+								pMethod->function = *static_cast<void**>(field);
+								pAClass->methods.push_back(pMethod);
+								const auto argCount = Invoke<int>("il2cpp_method_get_param_count", field);
+								for (auto index = 0; index < argCount; index++) pMethod->args.push_back(new Method::Arg{ Invoke<const char*>("il2cpp_method_get_param_name", field, index), new Type{.address = Invoke<void*>("il2cpp_method_get_param", field, index), .name = Invoke<const char*>("il2cpp_type_get_name", Invoke<void*>("il2cpp_method_get_param", field, index)), .size = -1} });
+							} while (field);
 							iter = nullptr;
+							const void* i_class{};
+							const void* iiter{};
 							do
-								if ((field = Invoke<void*>("il2cpp_class_get_methods", i_class, &iter))) {
-									int        fFlags{};
-									const auto pMethod = new Method{.address = field, .name = Invoke<const char*>("il2cpp_method_get_name", field), .klass = pAClass, .return_type = new Type{.address = Invoke<void*>("il2cpp_method_get_return_type", field),}, .flags = Invoke<int>("il2cpp_method_get_flags", field, &fFlags)};
-									int        tSize{};
-									pMethod->static_function   = pMethod->flags & 0x10;
-									pMethod->return_type->name = Invoke<const char*>("il2cpp_type_get_name", pMethod->return_type->address);
-									pMethod->return_type->size = -1;
-									pMethod->function          = *static_cast<void**>(field);
-									pAClass->methods.push_back(pMethod);
-									const auto argCount = Invoke<int>("il2cpp_method_get_param_count", field);
-									for (auto index = 0; index < argCount; index++) pMethod->args.push_back(new Method::Arg{Invoke<const char*>("il2cpp_method_get_param_name", field, index), new Type{.address = Invoke<void*>("il2cpp_method_get_param", field, index), .name = Invoke<const char*>("il2cpp_type_get_name", Invoke<void*>("il2cpp_method_get_param", field, index)), .size = -1}});
-								} while (field);
-							iter = nullptr;
-						} while (i_class);
+								if ((i_class = Invoke<void*>("il2cpp_class_get_interfaces", pClass, &iiter))) {
+									do
+										if ((field = Invoke<void*>("il2cpp_class_get_fields", i_class, &iter))) {
+											const auto pField = new Field{ .fieldinfo = field, .name = Invoke<const char*>("il2cpp_field_get_name", field), .type = new Type{.address = Invoke<void*>("il2cpp_field_get_type", field)}, .klass = pAClass, .offset = Invoke<int>("il2cpp_field_get_offset", field), .static_field = false, .vTable = nullptr };
+											int        tSize{};
+											pField->static_field = pField->offset == -1;
+											pField->type->name = Invoke<const char*>("il2cpp_type_get_name", pField->type->address);
+											pField->type->size = -1;
+											pAClass->fields.push_back(pField);
+										} while (field);
+										iter = nullptr;
+										do
+											if ((field = Invoke<void*>("il2cpp_class_get_methods", i_class, &iter))) {
+												int        fFlags{};
+												const auto pMethod = new Method{ .address = field, .name = Invoke<const char*>("il2cpp_method_get_name", field), .klass = pAClass, .return_type = new Type{.address = Invoke<void*>("il2cpp_method_get_return_type", field),}, .flags = Invoke<int>("il2cpp_method_get_flags", field, &fFlags) };
+												int        tSize{};
+												pMethod->static_function = pMethod->flags & 0x10;
+												pMethod->return_type->name = Invoke<const char*>("il2cpp_type_get_name", pMethod->return_type->address);
+												pMethod->return_type->size = -1;
+												pMethod->function = *static_cast<void**>(field);
+												pAClass->methods.push_back(pMethod);
+												const auto argCount = Invoke<int>("il2cpp_method_get_param_count", field);
+												for (auto index = 0; index < argCount; index++) pMethod->args.push_back(new Method::Arg{ Invoke<const char*>("il2cpp_method_get_param_name", field, index), new Type{.address = Invoke<void*>("il2cpp_method_get_param", field, index), .name = Invoke<const char*>("il2cpp_type_get_name", Invoke<void*>("il2cpp_method_get_param", field, index)), .size = -1} });
+											} while (field);
+											iter = nullptr;
+								} while (i_class);
 				}
 			}
-		} else {
+		}
+		else {
 			pDomain = Invoke<void*>("mono_get_root_domain");
 			Invoke<void*>("mono_thread_attach", pDomain);
 			Invoke<void*>("mono_jit_thread_attach", pDomain);
@@ -331,11 +334,11 @@ public:
 			Invoke<void*, void(*)(void* ptr, std::vector<Assembly*>&), std::vector<Assembly*>&>("mono_assembly_foreach", [](void* ptr, std::vector<Assembly*>& v) {
 				if (ptr == nullptr) return;
 
-				const auto assembly = new Assembly{.address = ptr,};
+				const auto assembly = new Assembly{ .address = ptr, };
 
 				const void* image = Invoke<void*>("mono_assembly_get_image", ptr);
-				assembly->file    = Invoke<const char*>("mono_image_get_filename", image);
-				assembly->name    = Invoke<const char*>("mono_image_get_name", image);
+				assembly->file = Invoke<const char*>("mono_image_get_filename", image);
+				assembly->name = Invoke<const char*>("mono_image_get_name", image);
 				assembly->name += ".dll";
 
 				const void* table = Invoke<void*>("mono_image_get_table_info", image, 2);
@@ -349,7 +352,7 @@ public:
 
 					const auto pAClass = new Class();
 					pAClass->classinfo = pClass;
-					pAClass->name      = Invoke<const char*>("mono_class_get_name", pClass);
+					pAClass->name = Invoke<const char*>("mono_class_get_name", pClass);
 					if (const auto pPClass = Invoke<void*>("mono_class_get_parent", pClass)) pAClass->parent = Invoke<const char*>("mono_class_get_name", pPClass);
 					pAClass->namespaze = Invoke<const char*>("mono_class_get_namespace", pClass);
 					assembly->classes.push_back(pAClass);
@@ -358,88 +361,88 @@ public:
 					void* field;
 					do
 						if ((field = Invoke<void*>("mono_class_get_fields", pClass, &iter))) {
-							const auto pField = new Field{.fieldinfo = field, .name = Invoke<const char*>("mono_field_get_name", field), .type = new Type{.address = Invoke<void*>("mono_field_get_type", field)}, .klass = pAClass, .offset = Invoke<int>("mono_field_get_offset", field), .static_field = false, .vTable = nullptr};
+							const auto pField = new Field{ .fieldinfo = field, .name = Invoke<const char*>("mono_field_get_name", field), .type = new Type{.address = Invoke<void*>("mono_field_get_type", field)}, .klass = pAClass, .offset = Invoke<int>("mono_field_get_offset", field), .static_field = false, .vTable = nullptr };
 							int        tSize{};
 							pField->static_field = pField->offset == -1;
-							pField->type->name   = Invoke<const char*>("mono_type_get_name", pField->type->address);
-							pField->type->size   = Invoke<int>("mono_type_size", pField->type->address, &tSize);
+							pField->type->name = Invoke<const char*>("mono_type_get_name", pField->type->address);
+							pField->type->size = Invoke<int>("mono_type_size", pField->type->address, &tSize);
 							pAClass->fields.push_back(pField);
 							if (pField->static_field) pField->vTable = Invoke<void*>("mono_class_vtable", pDomain, pClass);
 						} while (field);
-					iter = nullptr;
+						iter = nullptr;
 
-					auto iMethod{0};
-					do
-						if ((field = Invoke<void*>("mono_class_get_methods", pClass, &iter))) {
-							const auto signature = Invoke<void*>("mono_method_signature", field);
-							int        fFlags{};
-							const auto pMethod = new Method{.address = field, .name = Invoke<const char*>("mono_method_get_name", field), .klass = pAClass, .return_type = new Type{.address = Invoke<void*>("mono_signature_get_return_type", signature),}, .flags = Invoke<int>("mono_method_get_flags", field, &fFlags)};
-							int        tSize{};
-							pMethod->static_function   = pMethod->flags & 0x10;
-							pMethod->return_type->name = Invoke<const char*>("mono_type_get_name", pMethod->return_type->address);
-							pMethod->return_type->size = Invoke<int>("mono_type_size", pMethod->return_type->address, &tSize);
-							pAClass->methods.push_back(pMethod);
+						auto iMethod{ 0 };
+						do
+							if ((field = Invoke<void*>("mono_class_get_methods", pClass, &iter))) {
+								const auto signature = Invoke<void*>("mono_method_signature", field);
+								int        fFlags{};
+								const auto pMethod = new Method{ .address = field, .name = Invoke<const char*>("mono_method_get_name", field), .klass = pAClass, .return_type = new Type{.address = Invoke<void*>("mono_signature_get_return_type", signature),}, .flags = Invoke<int>("mono_method_get_flags", field, &fFlags) };
+								int        tSize{};
+								pMethod->static_function = pMethod->flags & 0x10;
+								pMethod->return_type->name = Invoke<const char*>("mono_type_get_name", pMethod->return_type->address);
+								pMethod->return_type->size = Invoke<int>("mono_type_size", pMethod->return_type->address, &tSize);
+								pAClass->methods.push_back(pMethod);
 
-							const auto names = new char*[Invoke<int>("mono_signature_get_param_count", signature)];
-							Invoke<void>("mono_method_get_param_names", field, names);
+								const auto names = new char* [Invoke<int>("mono_signature_get_param_count", signature)];
+								Invoke<void>("mono_method_get_param_names", field, names);
 
-							void* mIter = nullptr;
-							void* mType;
-							auto  iname = 0;
-							do
-								if ((mType = Invoke<void*>("mono_signature_get_params", signature, &mIter))) {
-									int t_size{};
-									pMethod->args.push_back(new Method::Arg{names[iname], new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size)}});
-									iname++;
-								} while (mType);
-						} while (field);
-					iter = nullptr;
-					const void* iClass{};
-					const void* iiter{};
-
-					do
-						if ((iClass = Invoke<void*>("mono_class_get_interfaces", pClass, &iiter))) {
-							do
-								if ((field = Invoke<void*>("mono_class_get_fields", iClass, &iter))) {
-									const auto pField = new Field{.fieldinfo = field, .name = Invoke<const char*>("mono_field_get_name", field), .type = new Type{.address = Invoke<void*>("mono_field_get_type", field)}, .klass = pAClass, .offset = Invoke<int>("mono_field_get_offset", field), .static_field = false, .vTable = nullptr};
-									int        tSize{};
-									pField->static_field = pField->offset == -1;
-									pField->type->name   = Invoke<const char*>("mono_type_get_name", pField->type->address);
-									pField->type->size   = Invoke<int>("mono_type_size", pField->type->address, &tSize);
-									pAClass->fields.push_back(pField);
-									if (pField->static_field) pField->vTable = Invoke<void*>("mono_class_vtable", pDomain, pClass);
-								} while (field);
+								void* mIter = nullptr;
+								void* mType;
+								auto  iname = 0;
+								do
+									if ((mType = Invoke<void*>("mono_signature_get_params", signature, &mIter))) {
+										int t_size{};
+										pMethod->args.push_back(new Method::Arg{ names[iname], new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size)} });
+										iname++;
+									} while (mType);
+							} while (field);
 							iter = nullptr;
+							const void* iClass{};
+							const void* iiter{};
 
 							do
-								if ((field = Invoke<void*>("mono_class_get_methods", iClass, &iter))) {
-									const auto signature = Invoke<void*>("mono_method_signature", field);
-									int        fFlags{};
-									const auto pMethod = new Method{.address = field, .name = Invoke<const char*>("mono_method_get_name", field), .klass = pAClass, .return_type = new Type{.address = Invoke<void*>("mono_signature_get_return_type", signature),}, .flags = Invoke<int>("mono_method_get_flags", field, &fFlags)};
-									int        tSize{};
-									pMethod->static_function   = pMethod->flags & 0x10;
-									pMethod->return_type->name = Invoke<const char*>("mono_type_get_name", pMethod->return_type->address);
-									pMethod->return_type->size = Invoke<int>("mono_type_size", pMethod->return_type->address, &tSize);
-									pAClass->methods.push_back(pMethod);
-
-									const auto names = new char*[Invoke<int>("mono_signature_get_param_count", signature)];
-									Invoke<void>("mono_method_get_param_names", field, names);
-
-									void* mIter = nullptr;
-									void* mType;
-									auto  iname = 0;
+								if ((iClass = Invoke<void*>("mono_class_get_interfaces", pClass, &iiter))) {
 									do
-										if ((mType = Invoke<void*>("mono_signature_get_params", signature, &mIter))) {
-											int t_size{};
-											pMethod->args.push_back(new Method::Arg{names[iname], new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size)}});
-											iname++;
-										} while (mType);
-								} while (field);
-							iter    = nullptr;
-							iMethod = 0;
-						} while (iClass);
+										if ((field = Invoke<void*>("mono_class_get_fields", iClass, &iter))) {
+											const auto pField = new Field{ .fieldinfo = field, .name = Invoke<const char*>("mono_field_get_name", field), .type = new Type{.address = Invoke<void*>("mono_field_get_type", field)}, .klass = pAClass, .offset = Invoke<int>("mono_field_get_offset", field), .static_field = false, .vTable = nullptr };
+											int        tSize{};
+											pField->static_field = pField->offset == -1;
+											pField->type->name = Invoke<const char*>("mono_type_get_name", pField->type->address);
+											pField->type->size = Invoke<int>("mono_type_size", pField->type->address, &tSize);
+											pAClass->fields.push_back(pField);
+											if (pField->static_field) pField->vTable = Invoke<void*>("mono_class_vtable", pDomain, pClass);
+										} while (field);
+										iter = nullptr;
+
+										do
+											if ((field = Invoke<void*>("mono_class_get_methods", iClass, &iter))) {
+												const auto signature = Invoke<void*>("mono_method_signature", field);
+												int        fFlags{};
+												const auto pMethod = new Method{ .address = field, .name = Invoke<const char*>("mono_method_get_name", field), .klass = pAClass, .return_type = new Type{.address = Invoke<void*>("mono_signature_get_return_type", signature),}, .flags = Invoke<int>("mono_method_get_flags", field, &fFlags) };
+												int        tSize{};
+												pMethod->static_function = pMethod->flags & 0x10;
+												pMethod->return_type->name = Invoke<const char*>("mono_type_get_name", pMethod->return_type->address);
+												pMethod->return_type->size = Invoke<int>("mono_type_size", pMethod->return_type->address, &tSize);
+												pAClass->methods.push_back(pMethod);
+
+												const auto names = new char* [Invoke<int>("mono_signature_get_param_count", signature)];
+												Invoke<void>("mono_method_get_param_names", field, names);
+
+												void* mIter = nullptr;
+												void* mType;
+												auto  iname = 0;
+												do
+													if ((mType = Invoke<void*>("mono_signature_get_params", signature, &mIter))) {
+														int t_size{};
+														pMethod->args.push_back(new Method::Arg{ names[iname], new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size)} });
+														iname++;
+													} while (mType);
+											} while (field);
+											iter = nullptr;
+											iMethod = 0;
+								} while (iClass);
 				}
-			}, assembly);
+				}, assembly);
 		}
 	}
 
@@ -781,11 +784,13 @@ public:
 					m_vEuler.x = static_cast<float>(3.1415926) * 0.5F;
 					m_vEuler.y = 2.F * atan2f(y, x);
 					m_vEuler.z = 0.F;
-				} else if (m_fTest < -0.4995F * m_fDist) {
+				}
+				else if (m_fTest < -0.4995F * m_fDist) {
 					m_vEuler.x = static_cast<float>(3.1415926) * -0.5F;
 					m_vEuler.y = -2.F * atan2f(y, x);
 					m_vEuler.z = 0.F;
-				} else {
+				}
+				else {
 					m_vEuler.x = asinf(2.F * (w * x - y * z));
 					m_vEuler.y = atan2f(2.F * w * y + 2.F * z * x, 1.F - 2.F * (x * x + y * y));
 					m_vEuler.z = atan2f(2.F * w * z + 2.F * x * y, 1.F - 2.F * (z * z + x * x));
@@ -816,15 +821,15 @@ public:
 		};
 
 		struct Rect {
-			float fX,     fY;
+			float fX, fY;
 			float fWidth, fHeight;
 
 			Rect() { fX = fY = fWidth = fHeight = 0.f; }
 
 			Rect(const float f1, const float f2, const float f3, const float f4) {
-				fX      = f1;
-				fY      = f2;
-				fWidth  = f3;
+				fX = f1;
+				fY = f2;
+				fWidth = f3;
 				fHeight = f4;
 			}
 		};
@@ -843,7 +848,7 @@ public:
 		};
 
 		struct Matrix4x4 {
-			float m[4][4] = {{0}};
+			float m[4][4] = { {0} };
 
 			Matrix4x4() = default;
 
@@ -852,11 +857,11 @@ public:
 
 		struct Object {
 			union {
-				void* klass{nullptr};
+				void* klass{ nullptr };
 				void* vtable;
 			}         Il2CppClass;
 
-			struct MonitorData* monitor{nullptr};
+			struct MonitorData* monitor{ nullptr };
 
 			auto GetType() -> CsType* {
 				static Method* method;
@@ -876,7 +881,7 @@ public:
 		};
 
 		struct String : Object {
-			int32_t m_stringLength{0};
+			int32_t m_stringLength{ 0 };
 			wchar_t m_firstChar[32]{};
 
 			[[nodiscard]] auto ToString() const -> std::string {
@@ -903,9 +908,9 @@ public:
 			struct {
 				std::uintptr_t length;
 				std::int32_t   lower_bound;
-			}*                 bounds{nullptr};
+			}*bounds{ nullptr };
 
-			std::uintptr_t          max_length{0};
+			std::uintptr_t          max_length{ 0 };
 			__declspec(align(8)) T* vector[32]{};
 
 			auto GetData() -> uintptr_t { return reinterpret_cast<uintptr_t>(&vector); }
@@ -983,20 +988,20 @@ public:
 				TValue tValue;
 			};
 
-			Array<int>*    pBuckets;
+			Array<int>* pBuckets;
 			Array<Entry*>* pEntries;
 			int            iCount;
 			int            iVersion;
 			int            iFreeList;
 			int            iFreeCount;
-			void*          pComparer;
-			void*          pKeys;
-			void*          pValues;
+			void* pComparer;
+			void* pKeys;
+			void* pValues;
 
 			auto GetEntry() -> Entry* { return static_cast<Entry*>(pEntries->GetData()); }
 
 			auto GetKeyByIndex(const int iIndex) -> TKey {
-				TKey tKey = {0};
+				TKey tKey = { 0 };
 
 				Entry* pEntry = GetEntry();
 				if (pEntry) tKey = pEntry[iIndex].m_tKey;
@@ -1005,7 +1010,7 @@ public:
 			}
 
 			auto GetValueByIndex(const int iIndex) -> TValue {
-				TValue tValue = {0};
+				TValue tValue = { 0 };
 
 				Entry* pEntry = GetEntry();
 				if (pEntry) tValue = pEntry[iIndex].m_tValue;
@@ -1014,7 +1019,7 @@ public:
 			}
 
 			auto GetValueByKey(const TKey tKey) -> TValue {
-				TValue tValue = {0};
+				TValue tValue = { 0 };
 				for (auto i = 0; i < iCount; i++) if (GetEntry()[i].m_tKey == tKey) tValue = GetEntry()[i].m_tValue;
 				return tValue;
 			}
@@ -1034,14 +1039,14 @@ public:
 
 			static auto Instantiate(UnityObject* original) -> UnityObject* {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("Instantiate", {"*"});
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("Instantiate", { "*" });
 				if (method) return method->Invoke<UnityObject*>(original);
 				throw std::logic_error("nullptr");
 			}
 
 			static auto Destroy(UnityObject* original) -> void {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("Destroy", {"*"});
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("Destroy", { "*" });
 				if (method) return method->Invoke<void>(original);
 				throw std::logic_error("nullptr");
 			}
@@ -1100,11 +1105,11 @@ public:
 
 			static auto GetAllCamera() -> std::vector<Camera*> {
 				static Method* method;
-				static Class*  klass;
+				static Class* klass;
 
 				if (!method || !klass) {
 					method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("GetAllCameras");
-					klass  = Get("UnityEngine.CoreModule.dll")->Get("Camera");
+					klass = Get("UnityEngine.CoreModule.dll")->Get("Camera");
 				}
 
 				if (method && klass) {
@@ -1326,7 +1331,7 @@ public:
 
 			auto GetComponent() -> Component* {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent", {"System.String"});
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent", { "System.String" });
 				if (method) return method->Invoke<Component*>(this, Get("UnityEngine.CoreModule.dll")->Get("Component")->GetType().GetObject());
 				throw std::logic_error("nullptr");
 			}
@@ -1410,21 +1415,21 @@ public:
 		struct Physics {
 			static auto Linecast(const Vector3 start, const Vector3 end) -> bool {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Linecast", {"*", "*"});
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Linecast", { "*", "*" });
 				if (method) return method->Invoke<bool>(start, end);
 				throw std::logic_error("nullptr");
 			}
 
 			static auto Raycast(const Vector3 origin, const Vector3 direction, const float maxDistance) -> bool {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Raycast", {"*", "*", "*"});
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Raycast", { "*", "*", "*" });
 				if (method) return method->Invoke<bool>(origin, direction, maxDistance);
 				throw std::logic_error("nullptr");
 			}
 
 			static auto IgnoreCollision(Collider* collider1, Collider* collider2) -> void {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("IgnoreCollision1", {"*", "*"});
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("IgnoreCollision1", { "*", "*" });
 				if (method) return method->Invoke<void>(collider1, collider2);
 				throw std::logic_error("nullptr");
 			}
@@ -1442,6 +1447,6 @@ private:
 	inline static Mode                                   mode_{};
 	inline static HMODULE                                hmodule_;
 	inline static std::unordered_map<std::string, void*> address_{};
-	inline static void*                                  pDomain{};
+	inline static void* pDomain{};
 };
 #endif // UNITYRESOLVE_HPP
