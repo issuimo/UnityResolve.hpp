@@ -8,8 +8,7 @@
 #include <string>
 #include <vector>
 #include <windows.h>
-
-#include "../PlayerList.h"
+#include <unordered_map>
 
 #ifdef _WIN64
 #define UNITY_CALLING_CONVENTION __fastcall
@@ -443,6 +442,15 @@ public:
 								} while (iClass);
 				}
 				}, assembly);
+
+			if (Get("UnityEngine.dll") && (!Get("UnityEngine.CoreModule.dll") || !Get("UnityEngine.PhysicsModule.dll"))) {
+				// 兼容某些游戏 (如生死狙击2)
+				for (const std::vector<std::string> names = { "UnityEngine.CoreModule.dll", "UnityEngine.PhysicsModule.dll" }; const auto name : names) {
+					const auto ass = Get("UnityEngine.dll");
+					const auto assembly = new Assembly{ .address = ass->address, .name = name, .file = ass->file, .classes = ass->classes };
+					UnityResolve::assembly.push_back(assembly);
+				}
+			}
 		}
 	}
 
