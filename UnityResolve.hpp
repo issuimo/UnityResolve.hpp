@@ -1556,16 +1556,10 @@ public:
 		};
 
 		struct Collider {
-			static auto GetBounds() -> std::vector<Bounds*> {
+			auto GetBounds() -> Bounds {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Collider")->Get<Method>("get_bounds");
-				if (method) {
-					std::vector<Bounds*> rs{};
-					const auto           array = method->Invoke<Array<Bounds*>*>();
-					rs.reserve(array->max_length);
-					for (auto i = 0; i < array->max_length; i++) rs.push_back(array->At(i));
-					return rs;
-				}
+				if (method) return method->Invoke<Bounds>(this);
 				throw std::logic_error("nullptr");
 			}
 		};
