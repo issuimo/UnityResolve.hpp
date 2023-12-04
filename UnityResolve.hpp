@@ -1543,14 +1543,14 @@ public:
 		};
 
 		struct Behaviour : Component {
-			static auto GetEnabled() -> bool {
+			auto GetEnabled() -> bool {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Behaviour")->Get<Method>("get_enabled");
 				if (method) return method->Invoke<bool>(this);
 				throw std::logic_error("nullptr");
 			}
 
-			static auto SetEnabled(bool value) -> bool {
+			auto SetEnabled(bool value) -> bool {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Behaviour")->Get<Method>("set_enabled");
 				if (method) return method->Invoke<bool>(this, value);
