@@ -1558,7 +1558,7 @@ public:
 		struct Collider {
 			static auto GetBounds() -> std::vector<Bounds*> {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Collider")->Get<Method>("get_bounds");
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Collider")->Get<Method>("get_bounds");
 				if (method) {
 					std::vector<Bounds*> rs{};
 					const auto           array = method->Invoke<Array<Bounds*>*>();
