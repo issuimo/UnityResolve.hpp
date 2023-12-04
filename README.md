@@ -28,6 +28,7 @@
 > - [X] Object (Unity)
 > - [X] LayerMask
 > - [X] Rigidbody
+> - [X] Behaviour
 > - [X] Physics
 > - [X] GameObject
 > - [X] Collider
