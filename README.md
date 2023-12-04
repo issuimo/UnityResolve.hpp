@@ -161,5 +161,7 @@ std::string child   = pParent->GetType()->FormatTypeName();
 ```
 #### 获取Gameobject组件 (Get GameObject component)
 ``` c++
+std::vector<T*> objs = gameobj->GetComponents<T*>(UnityResolve::Get("assembly.dll")->Get("class")));
 std::vector<T*> objs = gameobj->GetComponentsInChildren<T*>(UnityResolve::Get("assembly.dll")->Get("class")));
+std::vector<T*> objs = gameobj->GetComponentsInParent<T*>(UnityResolve::Get("assembly.dll")->Get("class")));
 ```
