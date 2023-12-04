@@ -63,6 +63,7 @@
 > - [X] 世界坐标转屏幕坐标 (WorldToScreenPoint)
 > - [X] 获取继承子类的名称 (Get the name of the inherited subclass)
 > - [X] 获取函数地址(变量偏移) 及调用(修改/获取) (Get the function address (variable offset) and invoke (modify/get))
+> - [x] 获取Gameobject组件 (Get GameObject component)
 > - More...
 
 #### 初始化 (Initialization)
@@ -157,4 +158,8 @@ const auto assembly = UnityResolve::Get("UnityEngine.CoreModule.dll");
 const auto pClass   = assembly->Get("MonoBehaviour");
 Parent* pParent     = pClass->FindObjectsByType<UnityResolve::UnityType::MonoBehaviour*>()[0];
 std::string child   = pParent->GetType()->FormatTypeName();
+```
+#### 获取Gameobject组件 (Get GameObject component)
+``` c++
+std::vector<T*> objs = gameobj->GetComponentsInChildren<T*>(UnityResolve::Get("assembly.dll")->Get("class")));
 ```
