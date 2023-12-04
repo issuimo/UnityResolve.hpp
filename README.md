@@ -52,8 +52,14 @@
 
 > ### 功能 (Function)
 > - [X] DumpToFile
+> - [X] 附加线程 (Thread Attach / Detach)
 > - [X] 修改静态变量值 (Modifying the value of a static variable)
 > - [X] 获取实例 (Obtaining an instance)
+> - [X] 创建C#字符串 (Create C# String)
+> - [X] 创建C#数组 (Create C# Array)
+> - [X] 世界坐标转屏幕坐标 (WorldToScreenPoint)
+> - [X] 获取继承子类的名称 (Get the name of the inherited subclass)
+> - [X] 获取函数地址(变量偏移) 及调用(修改/获取) (Get the function address (variable offset) and invoke (modify/get))
 > - More...
 
 #### 初始化 (Initialization)
