@@ -1414,7 +1414,21 @@ public:
 			}
 		};
 
-		struct Behaviour : Component {};
+		struct Behaviour : Component {
+			static auto GetEnabled() -> bool {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Behaviour")->Get<Method>("get_enabled");
+				if (method) return method->Invoke<bool>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			static auto SetEnabled(bool value) -> bool {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Behaviour")->Get<Method>("set_enabled");
+				if (method) return method->Invoke<bool>(this, value);
+				throw std::logic_error("nullptr");
+			}
+		};
 
 		struct MonoBehaviour : Behaviour {
 			void* m_CancellationTokenSource;
