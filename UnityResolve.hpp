@@ -65,18 +65,19 @@ public:
 		auto Get(const std::string& name, const std::vector<std::string>& args = {}) -> RType* {
 			if constexpr (std::is_same_v<RType, Field>) for (auto pField : fields) if (pField->name == name) return static_cast<RType*>(pField);
 			if constexpr (std::is_same_v<RType, std::int32_t>) for (const auto pField : fields) if (pField->name == name) return static_cast<RType>(pField->offset);
-			if constexpr (std::is_same_v<RType, Method>)
+			if constexpr (std::is_same_v<RType, Method>) {
 				for (auto pMethod : methods) {
-					std::string name2 = pMethod->name;
 					if (pMethod->name == name) {
-						if (args.empty()) return static_cast<RType*>(pMethod);
 						if (pMethod->args.size() == args.size()) {
 							for (size_t index{ 0 }; const auto & typeName : args) if (typeName == "*" || typeName.empty() ? false : pMethod->args[index++]->pType->name != typeName) goto next;
 							return static_cast<RType*>(pMethod);
 						}
 					}
-				next: continue;
+					next: continue;
 				}
+
+				if (args.empty()) for (auto pMethod : methods) if (pMethod->name == name) return static_cast<RType*>(pMethod);
+			}
 			return nullptr;
 		}
 
@@ -109,7 +110,7 @@ public:
 		auto FindObjectsByType() -> std::vector<T> {
 			static Method* pMethod;
 
-			if (!pMethod) pMethod = UnityResolve::Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>(mode_ == Mode::Il2Cpp ? "FindObjectsOfType" : "FindObjectsOfTypeAll");
+			if (!pMethod) pMethod = UnityResolve::Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>(mode_ == Mode::Il2Cpp ? "FindObjectsOfType" : "FindObjectsOfTypeAll", { "System.Type" });
 
 			if (pMethod) {
 				std::vector<T> rs{};
@@ -1209,6 +1210,14 @@ public:
 				if (method) return method->Invoke<String*>(this)->ToString();
 				throw std::logic_error("nullptr");
 			}
+
+			template<typename T>
+			auto GetComponentsInChildren() -> Array<T> {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren");
+				if (method) return method->Invoke<Array<T>*>(this);
+				throw std::logic_error("nullptr");
+			}
 		};
 
 		struct Camera : Component {
@@ -1244,7 +1253,7 @@ public:
 				static Class* klass;
 
 				if (!method || !klass) {
-					method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("GetAllCameras");
+					method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("GetAllCameras", { "*" });
 					klass = Get("UnityEngine.CoreModule.dll")->Get("Camera");
 				}
 
@@ -1266,7 +1275,7 @@ public:
 
 			auto SetDepth(const float depth) -> void {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("set_depth");
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("set_depth", { "*" });
 				if (method) return method->Invoke<void>(this, depth);
 			}
 
@@ -1467,9 +1476,28 @@ public:
 
 			auto GetComponent() -> Component* {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent", { "System.String" });
-				if (method) return method->Invoke<Component*>(this, Get("UnityEngine.CoreModule.dll")->Get("Component")->GetType().GetObject());
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent",{ "System.Type" });
+				if (method) return method->Invoke<Component*>(this);
 				throw std::logic_error("nullptr");
+			}
+
+			template<typename T>
+			auto GetComponents(Class* type, bool useSearchTypeAsArrayReturnType = false, bool recursive = false, bool includeInactive = true, bool reverse = false, List<T>* resultList = nullptr) -> std::vector<T> {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentsInternal");
+				if (method) return method->Invoke<Array<T>*>(this, type->GetType().GetObject(), useSearchTypeAsArrayReturnType, recursive, includeInactive, reverse, resultList)->ToVector();
+				throw std::logic_error("nullptr");
+			}
+
+			template<typename T>
+			auto GetComponentsInChildren(Class* type, const bool includeInactive = false) -> std::vector<T> {
+				return GetComponents<T>(type, false, true, includeInactive, false, nullptr);
+			}
+
+
+			template<typename T>
+			auto GetComponentsInParent(Class* type, const bool includeInactive = false) -> std::vector<T> {
+				return GetComponents<T>(type, false, true, includeInactive, true, nullptr);
 			}
 		};
 
