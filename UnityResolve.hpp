@@ -743,6 +743,70 @@ public:
 				z = f3;
 				w = f4;
 			}
+
+			auto operator*(const float x) -> Vector4 {
+				this->x *= x;
+				this->y *= x;
+				this->z *= x;
+				this->w *= x;
+				return *this;
+			}
+
+			auto operator-(const float x) -> Vector4 {
+				this->x -= x;
+				this->y -= x;
+				this->z -= x;
+				this->w -= x;
+				return *this;
+			}
+
+			auto operator+(const float x) -> Vector4 {
+				this->x += x;
+				this->y += x;
+				this->z += x;
+				this->w += x;
+				return *this;
+			}
+
+			auto operator/(const float x) -> Vector4 {
+				this->x /= x;
+				this->y /= x;
+				this->z /= x;
+				this->w /= x;
+				return *this;
+			}
+
+			auto operator*(const Vector4 x) -> Vector4 {
+				this->x *= x.x;
+				this->y *= x.y;
+				this->z *= x.z;
+				this->w *= x.w;
+				return *this;
+			}
+
+			auto operator-(const Vector4 x) -> Vector4 {
+				this->x -= x.x;
+				this->y -= x.y;
+				this->z -= x.z;
+				this->w -= x.w;
+				return *this;
+			}
+
+			auto operator+(const Vector4 x) -> Vector4 {
+				this->x += x.x;
+				this->y += x.y;
+				this->z += x.z;
+				this->w += x.w;
+				return *this;
+			}
+
+			auto operator/(const Vector4 x) -> Vector4 {
+				this->x /= x.x;
+				this->y /= x.y;
+				this->z /= x.z;
+				this->w /= x.w;
+				return *this;
+			}
 		};
 
 		struct Quaternion {
@@ -810,6 +874,70 @@ public:
 				m_vEuler.z *= m_fRad2Deg;
 
 				return m_vEuler;
+			}
+
+			auto operator*(const float x) -> Quaternion {
+				this->x *= x;
+				this->y *= x;
+				this->z *= x;
+				this->w *= x;
+				return *this;
+			}
+
+			auto operator-(const float x) -> Quaternion {
+				this->x -= x;
+				this->y -= x;
+				this->z -= x;
+				this->w -= x;
+				return *this;
+			}
+
+			auto operator+(const float x) -> Quaternion {
+				this->x += x;
+				this->y += x;
+				this->z += x;
+				this->w += x;
+				return *this;
+			}
+
+			auto operator/(const float x) -> Quaternion {
+				this->x /= x;
+				this->y /= x;
+				this->z /= x;
+				this->w /= x;
+				return *this;
+			}
+
+			auto operator*(const Quaternion x) -> Quaternion {
+				this->x *= x.x;
+				this->y *= x.y;
+				this->z *= x.z;
+				this->w *= x.w;
+				return *this;
+			}
+
+			auto operator-(const Quaternion x) -> Quaternion {
+				this->x -= x.x;
+				this->y -= x.y;
+				this->z -= x.z;
+				this->w -= x.w;
+				return *this;
+			}
+
+			auto operator+(const Quaternion x) -> Quaternion {
+				this->x += x.x;
+				this->y += x.y;
+				this->z += x.z;
+				this->w += x.w;
+				return *this;
+			}
+
+			auto operator/(const Quaternion x) -> Quaternion {
+				this->x /= x.x;
+				this->y /= x.y;
+				this->z /= x.z;
+				this->w /= x.w;
+				return *this;
 			}
 		};
 
