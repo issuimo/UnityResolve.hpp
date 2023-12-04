@@ -552,6 +552,8 @@ public:
 		struct Behaviour;
 		struct MonoBehaviour;
 		struct CsType;
+		struct Mesh;
+		struct Renderer;
 
 		struct Vector3 {
 			float x, y, z;
@@ -1558,8 +1560,38 @@ public:
 		struct Collider {
 			auto GetBounds() -> Bounds {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Collider")->Get<Method>("get_bounds");
-				if (method) return method->Invoke<Bounds>(this);
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Collider")->Get<Method>("get_bounds_Injected");
+				if (method) {
+					Bounds bounds;
+					method->Invoke<void>(this, &bounds);
+					return bounds;
+				}
+				throw std::logic_error("nullptr");
+			}
+		};
+
+		struct Mesh {
+			auto GetBounds() -> Bounds {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Mesh")->Get<Method>("get_bounds_Injected");
+				if (method) {
+					Bounds bounds;
+					method->Invoke<void>(this, &bounds);
+					return bounds;
+				}
+				throw std::logic_error("nullptr");
+			}
+		};
+
+		struct Renderer {
+			auto GetBounds() -> Bounds {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Renderer")->Get<Method>("get_bounds_Injected");
+				if (method) {
+					Bounds bounds;
+					method->Invoke<void>(this, &bounds);
+					return bounds;
+				}
 				throw std::logic_error("nullptr");
 			}
 		};
