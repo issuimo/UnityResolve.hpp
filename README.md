@@ -28,6 +28,9 @@
 > - [X] Object (Unity)
 > - [X] LayerMask
 > - [X] Rigidbody
+> - [x] MonoBehaviour
+> - [x] Renderer
+> - [x] Mesh
 > - [X] Behaviour
 > - [X] Physics
 > - [X] GameObject
