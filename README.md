@@ -97,9 +97,9 @@ const auto pClass   = assembly->Get("className | 类名称");
 const auto field       = pClass->Get<UnityResolve::Field>("Field | 变量名");
 const auto fieldOffset = pClass->Get<std::int32_t>("Field | 变量名");
 const int  time        = pClass->GetFieldValue<int>(obj, "time");
-                      // GetFieldValue(obj*, name);
+                      // pClass->GetFieldValue(obj*, name);
                        = pClass->SetFieldValue<int>(obj, "time", 114514);
-                      // SetFieldValue(obj*, name, value);
+                      // pClass->SetFieldValue(obj*, name, value);
 const auto method      = pClass->Get<UnityResolve::Method>("Method | 函数名");
                       // pClass->Get<UnityResolve::Method>("Method | 函数名", { "System.String" });
                       // pClass->Get<UnityResolve::Method>("Method | 函数名", { "*", "System.String" });
@@ -156,12 +156,15 @@ Vector3 point   = pCamera->WorldToScreenPoint(Vector3, Eye::Left);
 ``` c++
 const auto assembly = UnityResolve::Get("UnityEngine.CoreModule.dll");
 const auto pClass   = assembly->Get("MonoBehaviour");
-Parent* pParent     = pClass->FindObjectsByType<UnityResolve::UnityType::MonoBehaviour*>()[0];
+Parent* pParent     = pClass->FindObjectsByType<Parent*>()[0];
 std::string child   = pParent->GetType()->FormatTypeName();
 ```
 #### 获取Gameobject组件 (Get GameObject component)
 ``` c++
 std::vector<T*> objs = gameobj->GetComponents<T*>(UnityResolve::Get("assembly.dll")->Get("class")));
+                    // gameobj->GetComponents<return type>(Class* component)
 std::vector<T*> objs = gameobj->GetComponentsInChildren<T*>(UnityResolve::Get("assembly.dll")->Get("class")));
+                    // gameobj->GetComponentsInChildren<return type>(Class* component)
 std::vector<T*> objs = gameobj->GetComponentsInParent<T*>(UnityResolve::Get("assembly.dll")->Get("class")));
+                    // gameobj->GetComponentsInParent<return type>(Class* component)
 ```
