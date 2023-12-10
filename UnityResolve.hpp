@@ -274,7 +274,7 @@ public:
 						if ((field = Invoke<void*>("il2cpp_class_get_fields", pClass, &iter))) {
 							const auto pField = new Field{ .fieldinfo = field, .name = Invoke<const char*>("il2cpp_field_get_name", field), .type = new Type{.address = Invoke<void*>("il2cpp_field_get_type", field)}, .klass = pAClass, .offset = Invoke<int>("il2cpp_field_get_offset", field), .static_field = false, .vTable = nullptr };
 							int        tSize{};
-							pField->static_field = pField->offset == -1;
+							pField->static_field = pField->offset  <= 0;
 							pField->type->name = Invoke<const char*>("il2cpp_type_get_name", pField->type->address);
 							pField->type->size = -1;
 							pAClass->fields.push_back(pField);
@@ -302,7 +302,7 @@ public:
 										if ((field = Invoke<void*>("il2cpp_class_get_fields", i_class, &iter))) {
 											const auto pField = new Field{ .fieldinfo = field, .name = Invoke<const char*>("il2cpp_field_get_name", field), .type = new Type{.address = Invoke<void*>("il2cpp_field_get_type", field)}, .klass = pAClass, .offset = Invoke<int>("il2cpp_field_get_offset", field), .static_field = false, .vTable = nullptr };
 											int        tSize{};
-											pField->static_field = pField->offset == -1;
+											pField->static_field = pField->offset  <= 0;
 											pField->type->name = Invoke<const char*>("il2cpp_type_get_name", pField->type->address);
 											pField->type->size = -1;
 											pAClass->fields.push_back(pField);
@@ -363,7 +363,7 @@ public:
 						if ((field = Invoke<void*>("mono_class_get_fields", pClass, &iter))) {
 							const auto pField = new Field{ .fieldinfo = field, .name = Invoke<const char*>("mono_field_get_name", field), .type = new Type{.address = Invoke<void*>("mono_field_get_type", field)}, .klass = pAClass, .offset = Invoke<int>("mono_field_get_offset", field), .static_field = false, .vTable = nullptr };
 							int        tSize{};
-							pField->static_field = pField->offset == -1;
+							pField->static_field = pField->offset <= 0;
 							pField->type->name = Invoke<const char*>("mono_type_get_name", pField->type->address);
 							pField->type->size = Invoke<int>("mono_type_size", pField->type->address, &tSize);
 							pAClass->fields.push_back(pField);
@@ -406,7 +406,7 @@ public:
 										if ((field = Invoke<void*>("mono_class_get_fields", iClass, &iter))) {
 											const auto pField = new Field{ .fieldinfo = field, .name = Invoke<const char*>("mono_field_get_name", field), .type = new Type{.address = Invoke<void*>("mono_field_get_type", field)}, .klass = pAClass, .offset = Invoke<int>("mono_field_get_offset", field), .static_field = false, .vTable = nullptr };
 											int        tSize{};
-											pField->static_field = pField->offset == -1;
+											pField->static_field = pField->offset  <= 0;
 											pField->type->name = Invoke<const char*>("mono_type_get_name", pField->type->address);
 											pField->type->size = Invoke<int>("mono_type_size", pField->type->address, &tSize);
 											pAClass->fields.push_back(pField);
