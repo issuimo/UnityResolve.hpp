@@ -144,10 +144,11 @@ std::vector<Player*> playerVector = pClass->FindObjectsByType<Player*>();
 // FindObjectsByType<return type>(void);
 playerVector.size();
 ```
-#### 世界坐标转屏幕坐标 (WorldToScreenPoint)
+#### 世界坐标转屏幕坐标/屏幕坐标转世界坐标 (WorldToScreenPoint/ScreenToWorldPoint)
 ``` c++
 Camera* pCamera = UnityResolve::UnityType::Camera::GetMain();
 Vector3 point   = pCamera->WorldToScreenPoint(Vector3, Eye::Left);
+Vector3 world   = pCamera->ScreenToWorldPoint(point, Eye::Left);
 ```
 #### 获取继承子类的名称 (Get the name of the inherited subclass)
 > [!NOTE]\
