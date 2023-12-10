@@ -10,8 +10,6 @@
 #include <windows.h>
 #include <unordered_map>
 
-#include "UnityResolve.hpp"
-
 #ifdef _WIN64
 #define UNITY_CALLING_CONVENTION __fastcall
 #elif _WIN32
