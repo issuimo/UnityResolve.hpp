@@ -1,6 +1,6 @@
 > [!NOTE]\
-> 有新的功能建议或者Bug可以提交Issues \
-> New feature suggestions or bugs can be submitted as issues.
+> 有新的功能建议或者Bug可以提交Issues (当然你也可以尝试自己修改后提交\
+> New feature suggestions or bugs can be commit as issues. Of course, you can also try modifying it yourself and then commit.
 
 > Dome
 > - [Phasmophobia Cheat](https://github.com/issuimo/PhasmophobiaCheat/tree/main)
