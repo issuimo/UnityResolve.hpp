@@ -110,8 +110,8 @@ const auto method      = pClass->Get<UnityResolve::Method>("Method Name | 函数
 
 const auto functionPtr = method->function;
 
-const auto method1 = pClass->Get<Method>("method name1 | 函数名称1");
-const auto method2 = pClass->Get<Method>("method name2 | 函数名称2");
+const auto method1 = pClass->Get<UnityResolve::Method>("method name1 | 函数名称1");
+const auto method2 = pClass->Get<UnityResolve::Method>("method name2 | 函数名称2");
 
 method1->Invoke<int>(114, 514, "114514");
 // Invoke<return type>(args...);
