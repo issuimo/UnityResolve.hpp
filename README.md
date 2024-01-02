@@ -151,9 +151,6 @@ Vector3 point   = pCamera->WorldToScreenPoint(Vector3, Eye::Left);
 Vector3 world   = pCamera->ScreenToWorldPoint(point, Eye::Left);
 ```
 #### 获取继承子类的名称 (Get the name of the inherited subclass)
-> [!NOTE]\
-> 在找不到某一个实体类的情况下这很有用 \
-> This is very useful in cases where a certain entity class cannot be found.
 ``` c++
 const auto assembly = UnityResolve::Get("UnityEngine.CoreModule.dll");
 const auto pClass   = assembly->Get("MonoBehaviour");
