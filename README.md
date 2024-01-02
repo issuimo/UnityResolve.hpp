@@ -96,9 +96,9 @@ const auto pClass   = assembly->Get("className | 类名称");
 
 const auto field       = pClass->Get<UnityResolve::Field>("Field | 变量名");
 const auto fieldOffset = pClass->Get<std::int32_t>("Field | 变量名");
-const int  time        = pClass->GetValue<int>(obj, "time");
+const int  time        = pClass->GetValue<int>(obj Instance | 对象地址, "time");
                       // pClass->GetValue(obj*, name);
-                       = pClass->SetValue<int>(obj, "time", 114514);
+                       = pClass->SetValue<int>(obj Instance | 对象地址, "time", 114514);
                       // pClass->SetValue(obj*, name, value);
 const auto method      = pClass->Get<UnityResolve::Method>("Method | 函数名");
                       // pClass->Get<UnityResolve::Method>("Method | 函数名", { "System.String" });
