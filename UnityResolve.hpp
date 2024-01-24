@@ -11,8 +11,10 @@
 #if WINDOWS_MODE || LINUX_MODE
 #include <format>
 #endif
+#include <codecvt>
 #include <fstream>
 #include <iostream>
+#include <locale>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -21,12 +23,14 @@
 #include <windows.h>
 #endif
 
-#if WINDOWS_MODE || LINUX_MODE
+#if WINDOWS_MODE
 #ifdef _WIN64
 #define UNITY_CALLING_CONVENTION __fastcall
 #elif _WIN32
 #define UNITY_CALLING_CONVENTION __cdecl
 #endif
+#elif ANDROID_MODE || LINUX_MODE
+#define UNITY_CALLING_CONVENTION
 #endif
 
 class UnityResolve final {
@@ -40,7 +44,6 @@ public:
 	enum class Mode : char {
 		Il2Cpp,
 		Mono,
-		Auto
 	};
 
 	struct Assembly final {
@@ -235,19 +238,9 @@ public:
 		}
 	}
 
-	static auto Init(void* hmodule, const Mode mode = Mode::Auto) -> void {
+	static auto Init(void* hmodule, const Mode mode = Mode::Mono) -> void {
 		mode_    = mode;
 		hmodule_ = hmodule;
-
-		// 自动判断模式
-		if (mode == Mode::Auto) {
-			char path[0xFF];
-			GetModuleFileNameA(static_cast<HMODULE>(hmodule), path, 0xFF);
-			const std::string file{path};
-			auto              ret = file.substr(0, file.find_first_of('\\') + 1);
-			if (file.find("mono") != std::string::npos) mode_ = Mode::Mono;
-			else mode_                                        = Mode::Il2Cpp;
-		}
 
 		if (mode_ == Mode::Il2Cpp) {
 			pDomain = Invoke<void*>("il2cpp_domain_get");
@@ -1026,7 +1019,7 @@ public:
 				std::wstring_convert<convert_typeX, wchar_t> converterX;
 				return converterX.to_bytes(m_firstChar);
 #elif ANDROID_MODE
-				// 可能存在bug 目前已有报告 比如对象标签 有的时候会直接跳到游戏控制器里面去
+				// 可能存在bug 目前已有报告 "比如对象标签 有的时候会直接跳到游戏控制器里面去"
 				using convert_typeX = std::codecvt_utf8<wchar_t>;
 				std::wstring_convert<convert_typeX, wchar_t> converterX;
 				return converterX.to_bytes(m_firstChar);
@@ -1058,7 +1051,7 @@ public:
 
 			auto GetData() -> uintptr_t { return reinterpret_cast<uintptr_t>(&vector); }
 
-			auto operator[](const unsigned int m_uIndex) -> T& { return *reinterpret_cast<T*>(GetData() + sizeof(T) * m_uIndex); }
+			auto operator[](const unsigned int m_uIndex) -> T& { return reinterpret_cast<T>(GetData() + sizeof(T) * m_uIndex); }
 
 			auto At(const unsigned int m_uIndex) -> T& { return operator[](m_uIndex); }
 
@@ -1116,10 +1109,68 @@ public:
 		template <typename Type>
 		struct List : Object {
 			Array<Type>* pList;
+			int size{};
+			int version{};
+			void* syncRoot{};
 
 			auto ToArray() -> Array<Type>* { return pList; }
 
-			static auto New(const Class* kalss, const std::uintptr_t size) -> List* { pList = Array<Type>::New(kalss, size); }
+			static auto New(const Class* kalss, const std::uintptr_t size) -> List* {
+				auto pList = new List<Type>();
+				pList->pList = Array<Type>::New(kalss, size);
+				pList->size = size;
+			}
+
+			auto operator[](const unsigned int m_uIndex) -> Type& { return pList->At(m_uIndex); }
+
+			auto Add(Type* pDate) -> float {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("Add");
+				if (method) return method->Invoke<void>(this, pDate);
+				throw std::logic_error("nullptr");
+			}
+
+			auto Remove(Type* pDate) -> float {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("Remove");
+				if (method) return method->Invoke<void>(this, pDate);
+				throw std::logic_error("nullptr");
+			}
+
+			auto RemoveAt(int index) -> float {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("RemoveAt");
+				if (method) return method->Invoke<void>(this, index);
+				throw std::logic_error("nullptr");
+			}
+
+			auto ForEach(void(*action)(Type* pDate)) -> float {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("ForEach");
+				if (method) return method->Invoke<void>(this, action);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetRange(int index, int count) -> float {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("GetRange");
+				if (method) return method->Invoke<void>(this, index, count);
+				throw std::logic_error("nullptr");
+			}
+
+			auto Clear() -> float {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("Clear");
+				if (method) return method->Invoke<void>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto Sort(int(*comparison)(Type* pX, Type* pY)) -> float {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("Sort");
+				if (method) return method->Invoke<void>(this, comparison);
+				throw std::logic_error("nullptr");
+			}
 		};
 
 		template <typename TKey, typename TValue>
@@ -1308,6 +1359,18 @@ public:
 				if (method) return method->Invoke<Vector3>(this, position, eye);
 				throw std::logic_error("nullptr");
 			}
+
+			auto CameraToWorldMatrix() -> Matrix4x4 {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>(mode_ == Mode::Mono ? "get_cameraToWorldMatrix_Injected" : "get_cameraToWorldMatrix");
+				if (mode_ == Mode::Mono && method) {
+					Matrix4x4 matrix4{};
+					method->Invoke<void>(this, &matrix4);
+					return matrix4;
+				}
+				if (method) return method->Invoke<Matrix4x4>(this);
+				throw std::logic_error("nullptr");
+			}
 		};
 
 		struct Transform : Component {
@@ -1465,7 +1528,7 @@ public:
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("FindGameObjectsWithTag");
 				if (method) {
 					std::vector<GameObject*> rs{};
-					const auto               array = method->Invoke<Array<GameObject*>*, String*>(String::New(name));
+					const auto               array = method->Invoke<Array<GameObject*>*>(String::New(name));
 					rs.reserve(array->max_length);
 					for (auto i = 0; i < array->max_length; i++) rs.push_back(array->At(i));
 					return rs;
