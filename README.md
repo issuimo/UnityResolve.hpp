@@ -59,6 +59,13 @@
 <h3 align="center">功能使用 (How to use)</h3>
 <hr>
 
+### 更改平台 (Change platform)
+> ``` c++
+> #define WINDOWS_MODE 1 // 如果需要请改为 1 | 1 if you need
+> #define ANDROID_MODE 0
+> #define LINUX_MODE 0
+> ```
+
 #### 初始化 (Initialization)
 > ``` c++
 > UnityResolve::Init(GetModuleHandle(L"GameAssembly.dll | mono.dll"), UnityResolve::Mode::Auto);
