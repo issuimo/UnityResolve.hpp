@@ -1,24 +1,8 @@
 > [!NOTE]\
 > 有新的功能建议或者Bug可以提交Issues (当然你也可以尝试自己修改代码后提交到该仓库\
 > New feature suggestions or bugs can be commit as issues. Of course, you can also try modifying the code yourself and then commit it to the repository.
-
-> Dome
-> - [Phasmophobia Cheat](https://github.com/issuimo/PhasmophobiaCheat/tree/main)
-
-> 如果在调用Unity函数时发生崩溃情况可以使用以下方法解决 (仅il2cpp)\
-> If a crash occurs when calling Unity functions, you can use the following methods to resolve it. (il2cpp only)
-> ``` c++
-> __try {
->   // your code
-> 
->   // if error C2712
->   [&]() {
->     // your code
->   }();
-> } __except (EXCEPTION_EXECUTE_HANDLER) {
->    return;
-> }
-> ```
+> > Dome
+> > - [Phasmophobia Cheat](https://github.com/issuimo/PhasmophobiaCheat/tree/main)
 
 # UnityResolve.hpp
 > ### 类型 (Type)
