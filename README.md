@@ -8,53 +8,53 @@
 <hr>
 
 # UnityResolve.hpp
-> > ### 支持的平台 (Supported platforms)
-> > - [X] Windows
-> > - [X] Android
-> > - [X] Linux
-> > ### 类型 (Type)
-> > - [X] Camera
-> > - [X] Transform
-> > - [X] Component
-> > - [X] Object (Unity)
-> > - [X] LayerMask
-> > - [X] Rigidbody
-> > - [x] MonoBehaviour
-> > - [x] Renderer
-> > - [x] Mesh
-> > - [X] Behaviour
-> > - [X] Physics
-> > - [X] GameObject
-> > - [X] Collider
-> > - [X] Vector4
-> > - [X] Vector3
-> > - [X] Vector2
-> > - [X] Quaternion
-> > - [X] Bounds
-> > - [X] Plane
-> > - [X] Ray
-> > - [X] Rect
-> > - [X] Color
-> > - [X] Matrix4x4
-> > - [X] Array
-> > - [x] String
-> > - [x] Object (C#)
-> > - [X] Type (C#)
-> > - [X] List
-> > - [X] Dictionary
-> > - More...
+> ### 支持的平台 (Supported platforms)
+> - [X] Windows
+> - [X] Android
+> - [X] Linux
+> ### 类型 (Type)
+> - [X] Camera
+> - [X] Transform
+> - [X] Component
+> - [X] Object (Unity)
+> - [X] LayerMask
+> - [X] Rigidbody
+> - [x] MonoBehaviour
+> - [x] Renderer
+> - [x] Mesh
+> - [X] Behaviour
+> - [X] Physics
+> - [X] GameObject
+> - [X] Collider
+> - [X] Vector4
+> - [X] Vector3
+> - [X] Vector2
+> - [X] Quaternion
+> - [X] Bounds
+> - [X] Plane
+> - [X] Ray
+> - [X] Rect
+> - [X] Color
+> - [X] Matrix4x4
+> - [X] Array
+> - [x] String
+> - [x] Object (C#)
+> - [X] Type (C#)
+> - [X] List
+> - [X] Dictionary
+> - More...
 > ### 功能 (Function)
-> > - [X] DumpToFile
-> > - [X] 附加线程 (Thread Attach / Detach)
-> > - [X] 修改静态变量值 (Modifying the value of a static variable)
-> > - [X] 获取实例 (Obtaining an instance)
-> > - [X] 创建C#字符串 (Create C# String)
-> > - [X] 创建C#数组 (Create C# Array)
-> > - [X] 世界坐标转屏幕坐标/屏幕坐标转世界坐标 (WorldToScreenPoint/ScreenToWorldPoint)
-> > - [X] 获取继承子类的名称 (Get the name of the inherited subclass)
-> > - [X] 获取函数地址(变量偏移) 及调用(修改/获取) (Get the function address (variable offset) and invoke (modify/get))
-> > - [x] 获取Gameobject组件 (Get GameObject component)
-> > - More...
+> - [X] DumpToFile
+> - [X] 附加线程 (Thread Attach / Detach)
+> - [X] 修改静态变量值 (Modifying the value of a static variable)
+> - [X] 获取实例 (Obtaining an instance)
+> - [X] 创建C#字符串 (Create C# String)
+> - [X] 创建C#数组 (Create C# Array)
+> - [X] 世界坐标转屏幕坐标/屏幕坐标转世界坐标 (WorldToScreenPoint/ScreenToWorldPoint)
+> - [X] 获取继承子类的名称 (Get the name of the inherited subclass)
+> - [X] 获取函数地址(变量偏移) 及调用(修改/获取) (Get the function address (variable offset) and invoke (modify/get))
+> - [x] 获取Gameobject组件 (Get GameObject component)
+> - More...
 <hr>
 <h3 align="center">功能使用 (How to use)</h3>
 <hr>
