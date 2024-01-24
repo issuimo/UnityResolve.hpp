@@ -1051,7 +1051,7 @@ public:
 
 			auto GetData() -> uintptr_t { return reinterpret_cast<uintptr_t>(&vector); }
 
-			auto operator[](const unsigned int m_uIndex) -> T& { return reinterpret_cast<T>(GetData() + sizeof(T) * m_uIndex); }
+			auto operator[](const unsigned int m_uIndex) -> T& { return *reinterpret_cast<T*>(GetData() + sizeof(T) * m_uIndex); }
 
 			auto At(const unsigned int m_uIndex) -> T& { return operator[](m_uIndex); }
 
