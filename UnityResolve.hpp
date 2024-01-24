@@ -21,10 +21,12 @@
 #include <windows.h>
 #endif
 
+#if WINDOWS_MODE || LINUX_MODE
 #ifdef _WIN64
 #define UNITY_CALLING_CONVENTION __fastcall
 #elif _WIN32
 #define UNITY_CALLING_CONVENTION __cdecl
+#endif
 #endif
 
 class UnityResolve final {
