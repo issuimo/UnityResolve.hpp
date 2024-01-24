@@ -3,7 +3,10 @@
 > New feature suggestions or bugs can be commit as issues. Of course, you can also try modifying the code yourself and then commit it to the repository.
 > > Dome
 > > - [Phasmophobia Cheat](https://github.com/issuimo/PhasmophobiaCheat/tree/main)
+##### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+<h3 align="center">简要概述 (Brief overview)</h3>
 
+##### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # UnityResolve.hpp
 > > ### 类型 (Type)
 > > - [X] Camera
@@ -48,7 +51,10 @@
 > > - [X] 获取函数地址(变量偏移) 及调用(修改/获取) (Get the function address (variable offset) and invoke (modify/get))
 > > - [x] 获取Gameobject组件 (Get GameObject component)
 > > - More...
+##### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+<h3 align="center">功能使用 (How to use)</h3>
 
+##### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #### 初始化 (Initialization)
 > ``` c++
 > UnityResolve::Init(GetModuleHandle(L"GameAssembly.dll | mono.dll"), UnityResolve::Mode::Auto);
