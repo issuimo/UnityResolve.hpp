@@ -30,6 +30,7 @@
 #define UNITY_CALLING_CONVENTION __cdecl
 #endif
 #elif ANDROID_MODE || LINUX_MODE
+#include <dlfcn.h>
 #define UNITY_CALLING_CONVENTION
 #endif
 
