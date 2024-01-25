@@ -183,7 +183,7 @@ public:
 		template <typename Return, typename... Args>
 		auto Invoke(Args... args) -> Return {
 			Compile();
-			if (function) return static_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
+			if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
 			throw std::logic_error("nullptr");
 		}
 
