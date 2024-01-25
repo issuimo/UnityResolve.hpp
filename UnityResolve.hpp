@@ -1,6 +1,11 @@
-﻿#ifndef UNITYRESOLVE_HPP
+﻿/*
+ * Update: 2024-1-25 13:00
+ * Source: https://github.com/issuimo/UnityResolve.hpp
+ * Author: github@issuimo
+ */
+
+#ifndef UNITYRESOLVE_HPP
 #define UNITYRESOLVE_HPP
-#undef GetObject 
 #define WINDOWS_MODE 1 // 如果需要请改为 1 | 1 if you need
 #define ANDROID_MODE 0
 #define LINUX_MODE 0
@@ -21,6 +26,7 @@
 #include <vector>
 #if WINDOWS_MODE
 #include <windows.h>
+#undef GetObject 
 #endif
 
 #if WINDOWS_MODE
