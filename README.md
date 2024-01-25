@@ -68,7 +68,9 @@
 
 #### 初始化 (Initialization)
 > ``` c++
-> UnityResolve::Init(GetModuleHandle(L"GameAssembly.dll | mono.dll"), UnityResolve::Mode::Auto);
+> UnityResolve::Init(GetModuleHandle(L"GameAssembly.dll | mono.dll"), UnityResolve::Mode::Mono);
+> // Linux or Android
+> UnityResolve::Init(dlopen(L"GameAssembly.so | mono.so", RTLD_NOW), UnityResolve::Mode::Mono);
 > ```
 > 参数1: dll句柄 \
 > Parameter 1: DLL handle \
@@ -76,7 +78,6 @@
 > Parameter 2: Usage mode
 > - Mode::Il2cpp
 > - Mode::Mono
-> - Mode::Auto
 
 #### 附加线程 (Thread Attach / Detach)
 > ``` c++
