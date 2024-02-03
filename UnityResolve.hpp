@@ -1550,6 +1550,13 @@ public:
 				throw std::logic_error("nullptr");
 			}
 
+			auto GetTag() -> String* {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_tag");
+				if (method) return method->Invoke<String*>(this);
+				throw std::logic_error("nullptr");
+			}
+
 			auto GetComponent() -> Component* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent", {"System.Type"});
