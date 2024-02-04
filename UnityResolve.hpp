@@ -278,12 +278,11 @@ public:
 		if (!io) return;
 
 		for (const auto& pAssembly : assembly) {
-			io << std::format("Assembly: {}\n", pAssembly->name.empty() ? "" : pAssembly->name);
-			io << std::format("AssemblyFile: {} \n", pAssembly->file.empty() ? "" : pAssembly->file);
-			io << "{\n\n";
 			for (const auto& pClass : pAssembly->classes) {
 				io << std::format("\tnamespace: {}", pClass->namespaze.empty() ? "" : pClass->namespaze);
 				io << "\n";
+				io << std::format("\tAssembly: {}\n", pAssembly->name.empty() ? "" : pAssembly->name);
+				io << std::format("\tAssemblyFile: {} \n", pAssembly->file.empty() ? "" : pAssembly->file);
 				io << std::format("\tclass {}{} ", pClass->name, pClass->parent.empty() ? "" : " : " + pClass->parent);
 				io << "{\n\n";
 				for (const auto& pField : pClass->fields) io << std::format("\t\t{:+#06X} | {}{} {}\n", pField->offset, pField->static_field ? "static " : "", pField->type->name, pField->name);
@@ -301,7 +300,6 @@ public:
 				}
 				io << "\t}\n\n";
 			}
-			io << "}\n\n";
 		}
 
 		io << '\n';
