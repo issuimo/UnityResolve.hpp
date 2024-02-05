@@ -87,7 +87,7 @@ public:
 		template <typename RType>
 		auto Get(const std::string& name, const std::vector<std::string>& args = {}) -> RType* {
 			if constexpr (std::is_same_v<RType, Field>) for (auto pField : fields) if (pField->name == name) return static_cast<RType*>(pField);
-			if constexpr (std::is_same_v<RType, std::int32_t>) for (const auto pField : fields) if (pField->name == name) return static_cast<RType>(pField->offset);
+			if constexpr (std::is_same_v<RType, std::int32_t>) for (const auto pField : fields) if (pField->name == name) return reinterpret_cast<RType*>(pField->offset);
 			if constexpr (std::is_same_v<RType, Method>) {
 				for (auto pMethod : methods) {
 					if (pMethod->name == name) {
@@ -144,8 +144,8 @@ public:
 
 		template <typename T>
 		auto New() -> T* {
-			if (mode_ == Mode::Il2Cpp) return Invoke<void*, void*>("il2cpp_object_new", classinfo);
-			return Invoke<void*, void*, void*>("mono_object_new", pDomain, classinfo);
+			if (mode_ == Mode::Il2Cpp) return Invoke<T*, void*>("il2cpp_object_new", classinfo);
+			return Invoke<T*, void*, void*>("mono_object_new", pDomain, classinfo);
 		}
 	};
 
