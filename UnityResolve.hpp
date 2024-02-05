@@ -187,11 +187,24 @@ public:
 
 		std::vector<Arg*> args;
 
+	private:
+		bool badPtr{false};
+	public:
+
 		template <typename Return, typename... Args>
 		auto Invoke(Args... args) -> Return {
 			Compile();
+#if WINDOWS_MODE
+			try {
+				if (!badPtr) badPtr = !IsBadCodePtr(static_cast<FARPROC>(function));
+				if (function && badPtr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
+			} catch (...) {
+				return Return();
+			}
+#else
 			if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
-			throw std::logic_error("nullptr");
+#endif
+			return Return();
 		}
 
 		auto Compile() -> void { if (address && !function && mode_ == Mode::Mono) function = UnityResolve::Invoke<void*>("mono_compile_method", address); }
@@ -469,7 +482,13 @@ private:
 			do {
 				if ((method = Invoke<void*>("il2cpp_class_get_methods", pKlass, &iter))) {
 					int        fFlags{};
-					const auto pMethod = new Method{.address = method, .name = Invoke<const char*>("il2cpp_method_get_name", method), .klass = klass, .return_type = new Type{.address = Invoke<void*>("il2cpp_method_get_return_type", method),}, .flags = Invoke<int>("il2cpp_method_get_flags", method, &fFlags)};
+					const auto pMethod = new Method{};
+					pMethod->address = method;
+					pMethod->name = Invoke<const char*>("il2cpp_method_get_name", method);
+					pMethod->klass = klass;
+					pMethod->return_type = new Type{ .address = Invoke<void*>("il2cpp_method_get_return_type", method), };
+					pMethod->flags = Invoke<int>("il2cpp_method_get_flags", method, &fFlags);
+
 					int        tSize{};
 					pMethod->static_function   = pMethod->flags & 0x10;
 					pMethod->return_type->name = Invoke<const char*>("il2cpp_type_get_name", pMethod->return_type->address);
@@ -487,7 +506,12 @@ private:
 				if ((method = Invoke<void*>("mono_class_get_methods", pKlass, &iter))) {
 					const auto signature = Invoke<void*>("mono_method_signature", method);
 					int        fFlags{};
-					const auto pMethod = new Method{.address = method, .name = Invoke<const char*>("mono_method_get_name", method), .klass = klass, .return_type = new Type{.address = Invoke<void*>("mono_signature_get_return_type", signature),}, .flags = Invoke<int>("mono_method_get_flags", method, &fFlags)};
+					const auto pMethod = new Method{};
+					pMethod->address = method;
+					pMethod->name = Invoke<const char*>("mono_method_get_name", method);
+					pMethod->klass = klass;
+					pMethod->return_type = new Type{ .address = Invoke<void*>("mono_signature_get_return_type", method), };
+					pMethod->flags = Invoke<int>("mono_method_get_flags", method, &fFlags);
 					int        tSize{};
 					pMethod->static_function   = pMethod->flags & 0x10;
 					pMethod->return_type->name = Invoke<const char*>("mono_type_get_name", pMethod->return_type->address);
