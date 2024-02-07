@@ -42,6 +42,9 @@
 > - [X] Type (C#)
 > - [X] List
 > - [X] Dictionary
+> - [X] Animator
+> - [X] CapsuleCollider
+> - [X] BoxCollider
 > - More...
 > ### 功能 (Function)
 > - [X] DumpToFile
