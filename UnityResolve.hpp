@@ -571,6 +571,8 @@ public:
 		struct CsType;
 		struct Mesh;
 		struct Renderer;
+		struct Animator;
+		struct CapsuleCollider;
 
 		struct Vector3 {
 			float x, y, z;
@@ -1032,6 +1034,20 @@ public:
 				if (method) return method->Invoke<String*>(this)->ToString();
 				throw std::logic_error("nullptr");
 			}
+
+			auto GetFullName() -> std::string {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type")->Get<Method>("get_FullName");
+				if (method) return method->Invoke<String*>(this)->ToString();
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetNamespace() -> std::string {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type")->Get<Method>("get_Namespace");
+				if (method) return method->Invoke<String*>(this)->ToString();
+				throw std::logic_error("nullptr");
+			}
 		};
 
 		struct String : Object {
@@ -1290,7 +1306,7 @@ public:
 				throw std::logic_error("nullptr");
 			}
 
-			auto ToString() -> std::string {
+			auto GetTag() -> std::string {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_tag");
 				if (method) return method->Invoke<String*>(this)->ToString();
@@ -1302,6 +1318,62 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren");
 				if (method) return method->Invoke<Array<T>*>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			template <typename T>
+			auto GetComponentsInChildren(Class* pClass) -> Array<T> {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren", { "System.Type" });;
+				if (method) return method->Invoke<Array<T>*>(this, pClass->GetType().GetObject());
+				throw std::logic_error("nullptr");
+			}
+
+			template <typename T>
+			auto GetComponents() -> Array<T> {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponents");
+				if (method) return method->Invoke<Array<T>*>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			template <typename T>
+			auto GetComponents(Class* pClass) -> Array<T> {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponents", { "System.Type" });;
+				if (method) return method->Invoke<Array<T>*>(this, pClass->GetType().GetObject());
+				throw std::logic_error("nullptr");
+			}
+
+			template <typename T>
+			auto GetComponentsInParent() -> Array<T> {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInParent");
+				if (method) return method->Invoke<Array<T>*>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			template <typename T>
+			auto GetComponentsInParent(Class* pClass) -> Array<T> {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInParent", { "System.Type" });;
+				if (method) return method->Invoke<Array<T>*>(this, pClass->GetType().GetObject());
+				throw std::logic_error("nullptr");
+			}
+
+			template <typename T>
+			auto GetComponentInChildren(Class* pClass) -> T {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentInChildren", { "System.Type" });;
+				if (method) return method->Invoke<T>(this, pClass->GetType().GetObject());
+				throw std::logic_error("nullptr");
+			}
+
+			template <typename T>
+			auto GetComponentInParent(Class* pClass) -> T {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentInParent", { "System.Type" });;
+				if (method) return method->Invoke<T>(this, pClass->GetType().GetObject());
 				throw std::logic_error("nullptr");
 			}
 		};
@@ -1542,9 +1614,35 @@ public:
 				if (method) return method->Invoke<Vector3>(this);
 				return {};
 			}
+
+			auto TransformPoint(const Vector3& position) -> Vector3 {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "TransformPoint_Injected" : "TransformPoint");
+				if (mode_ == Mode::Mono && method) {
+					const Vector3 vec3{};
+					method->Invoke<void>(this, position, &vec3);
+					return vec3;
+				}
+				if (method) return method->Invoke<Vector3>(this, position);
+				return {};
+			}
+
+			auto LookAt(const Vector3& worldPosition) -> void {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("LookAt", { "Vector3" });
+				if (method) return method->Invoke<void>(this, worldPosition);
+				throw std::logic_error("nullptr");
+			}
+
+			auto Rotate(const Vector3& eulers) -> void {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("Rotate", { "Vector3" });
+				if (method) return method->Invoke<void>(this, eulers);
+				throw std::logic_error("nullptr");
+			}
 		};
 
-		struct GameObject {
+		struct GameObject : UnityObject {
 			static auto Create(GameObject* obj, const std::string& name) -> void {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("Internal_CreateGameObject");
@@ -1565,10 +1663,24 @@ public:
 				throw std::logic_error("nullptr");
 			}
 
+			static auto Find(const std::string& name) -> GameObject* {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("Find");
+				if (method) return method->Invoke<GameObject*>(String::New(name));
+				throw std::logic_error("nullptr");
+			}
+
 			auto GetTransform() -> Transform* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_transform");
 				if (method) return method->Invoke<Transform*>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetIsStatic() -> bool {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_isStatic");
+				if (method) return method->Invoke<bool>(this);
 				throw std::logic_error("nullptr");
 			}
 
@@ -1581,8 +1693,29 @@ public:
 
 			auto GetComponent() -> Component* {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent", {"System.Type"});
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent");
 				if (method) return method->Invoke<Component*>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetComponent(const Class* type) -> Component* {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent", { "System.Type" });
+				if (method) return method->Invoke<Component*>(this, type->GetType().GetObject());
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetComponentInChildren(const Class* type) -> Component* {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentInChildren", { "System.Type" });
+				if (method) return method->Invoke<Component*>(this, type->GetType().GetObject());
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetComponentInParent(const Class* type) -> Component* {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentInParent", { "System.Type" });
+				if (method) return method->Invoke<Component*>(this, type->GetType().GetObject());
 				throw std::logic_error("nullptr");
 			}
 
@@ -1682,6 +1815,10 @@ public:
 			}
 		};
 
+		struct CapsuleCollider {
+			
+		};
+
 		struct Renderer : Component {
 			auto GetBounds() -> Bounds {
 				static Method* method;
@@ -1703,7 +1840,7 @@ public:
 				throw std::logic_error("nullptr");
 			}
 
-			auto SetEnabled(bool value) -> bool {
+			auto SetEnabled(const bool value) -> bool {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Behaviour")->Get<Method>("set_enabled");
 				if (method) return method->Invoke<bool>(this, value);
@@ -1715,15 +1852,15 @@ public:
 			void* m_CancellationTokenSource;
 		};
 
-		struct Physics {
-			static auto Linecast(const Vector3 start, const Vector3 end) -> bool {
+		struct Physics : Object {
+			static auto Linecast(const Vector3& start, const Vector3& end) -> bool {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Linecast", {"*", "*"});
 				if (method) return method->Invoke<bool>(start, end);
 				throw std::logic_error("nullptr");
 			}
 
-			static auto Raycast(const Vector3 origin, const Vector3 direction, const float maxDistance) -> bool {
+			static auto Raycast(const Vector3& origin, const Vector3& direction, const float maxDistance) -> bool {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Raycast", {"*", "*", "*"});
 				if (method) return method->Invoke<bool>(origin, direction, maxDistance);
@@ -1734,6 +1871,74 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("IgnoreCollision1", {"*", "*"});
 				if (method) return method->Invoke<void>(collider1, collider2);
+				throw std::logic_error("nullptr");
+			}
+		};
+
+		struct Animator : Behaviour {
+			enum class HumanBodyBones : int {
+				Hips,
+				LeftUpperLeg,
+				RightUpperLeg,
+				LeftLowerLeg,
+				RightLowerLeg,
+				LeftFoot,
+				RightFoot,
+				Spine,
+				Chest,
+				UpperChest = 54,
+				Neck = 9,
+				Head,
+				LeftShoulder,
+				RightShoulder,
+				LeftUpperArm,
+				RightUpperArm,
+				LeftLowerArm,
+				RightLowerArm,
+				LeftHand,
+				RightHand,
+				LeftToes,
+				RightToes,
+				LeftEye,
+				RightEye,
+				Jaw,
+				LeftThumbProximal,
+				LeftThumbIntermediate,
+				LeftThumbDistal,
+				LeftIndexProximal,
+				LeftIndexIntermediate,
+				LeftIndexDistal,
+				LeftMiddleProximal,
+				LeftMiddleIntermediate,
+				LeftMiddleDistal,
+				LeftRingProximal,
+				LeftRingIntermediate,
+				LeftRingDistal,
+				LeftLittleProximal,
+				LeftLittleIntermediate,
+				LeftLittleDistal,
+				RightThumbProximal,
+				RightThumbIntermediate,
+				RightThumbDistal,
+				RightIndexProximal,
+				RightIndexIntermediate,
+				RightIndexDistal,
+				RightMiddleProximal,
+				RightMiddleIntermediate,
+				RightMiddleDistal,
+				RightRingProximal,
+				RightRingIntermediate,
+				RightRingDistal,
+				RightLittleProximal,
+				RightLittleIntermediate,
+				RightLittleDistal,
+				LastBone = 55
+			};
+
+			auto GetBoneTransform(const HumanBodyBones humanBoneId) -> Transform* {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.AnimationModule.dll")->Get("Animator")->Get<Method>("GetBoneTransform");
+				if (method) return method->Invoke<Transform*>(this, humanBoneId);
 				throw std::logic_error("nullptr");
 			}
 		};
