@@ -170,7 +170,7 @@
 > const auto assembly = UnityResolve::Get("UnityEngine.CoreModule.dll");
 > const auto pClass   = assembly->Get("MonoBehaviour");
 > Parent* pParent     = pClass->FindObjectsByType<Parent*>()[0];
-> std::string child   = pParent->GetType()->FormatTypeName();
+> std::string child   = pParent->GetType()->GetFullName();
 > ```
 
 #### 获取Gameobject组件 (Get GameObject component)
