@@ -573,6 +573,7 @@ public:
 		struct Renderer;
 		struct Animator;
 		struct CapsuleCollider;
+		struct BoxCollider;
 
 		struct Vector3 {
 			float x, y, z;
@@ -1025,6 +1026,13 @@ public:
 				if (method) return method->Invoke<CsType*>(this);
 				throw std::logic_error("nullptr");
 			}
+
+			auto ToString() -> std::string {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Object")->Get<Method>("ToString");
+				if (method) return method->Invoke<String*>(this)->ToString();
+				throw std::logic_error("nullptr");
+			}
 		};
 
 		struct CsType {
@@ -1269,10 +1277,24 @@ public:
 		struct UnityObject : Object {
 			void* m_CachedPtr;
 
-			auto ToString() -> std::string {
+			auto GetName() -> std::string {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("get_name");
 				if (method) return method->Invoke<String*>(this)->ToString();
+				throw std::logic_error("nullptr");
+			}
+
+			auto ToString() -> std::string {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("ToString");
+				if (method) return method->Invoke<String*>(this)->ToString();
+				throw std::logic_error("nullptr");
+			}
+
+			static auto ToString(UnityObject* obj) -> std::string {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("ToString", { "*" });
+				if (method) return method->Invoke<String*>(obj)->ToString();
 				throw std::logic_error("nullptr");
 			}
 
@@ -1815,8 +1837,50 @@ public:
 			}
 		};
 
-		struct CapsuleCollider {
-			
+		struct CapsuleCollider : Collider {
+			auto GetCenter() -> Vector3 {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("CapsuleCollider")->Get<Method>("get_center");
+				if (method) return method->Invoke<Vector3>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetDirection() -> Vector3 {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("CapsuleCollider")->Get<Method>("get_direction");
+				if (method) return method->Invoke<Vector3>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetHeightn() -> Vector3 {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("CapsuleCollider")->Get<Method>("get_height");
+				if (method) return method->Invoke<Vector3>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetRadius() -> Vector3 {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("CapsuleCollider")->Get<Method>("get_radius");
+				if (method) return method->Invoke<Vector3>(this);
+				throw std::logic_error("nullptr");
+			}
+		};
+
+		struct BoxCollider : Collider {
+			auto GetCenter() -> Vector3 {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("BoxCollider")->Get<Method>("get_center");
+				if (method) return method->Invoke<Vector3>(this);
+				throw std::logic_error("nullptr");
+			}
+
+			auto GetSize() -> Vector3 {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("BoxCollider")->Get<Method>("get_size");
+				if (method) return method->Invoke<Vector3>(this);
+				throw std::logic_error("nullptr");
+			}
 		};
 
 		struct Renderer : Component {
@@ -1943,6 +2007,7 @@ public:
 			}
 		};
 
+		
 	private:
 		template <typename Return, typename... Args>
 		static auto Invoke(const void* address, Args... args) -> Return {
