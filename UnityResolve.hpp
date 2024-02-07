@@ -1336,7 +1336,7 @@ public:
 			}
 
 			template <typename T>
-			auto GetComponentsInChildren() -> Array<T> {
+			auto GetComponentsInChildren() -> Array<T>* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren");
 				if (method) return method->Invoke<Array<T>*>(this);
@@ -1344,7 +1344,7 @@ public:
 			}
 
 			template <typename T>
-			auto GetComponentsInChildren(Class* pClass) -> Array<T> {
+			auto GetComponentsInChildren(Class* pClass) -> Array<T>* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren", { "System.Type" });;
 				if (method) return method->Invoke<Array<T>*>(this, pClass->GetType().GetObject());
@@ -1352,7 +1352,7 @@ public:
 			}
 
 			template <typename T>
-			auto GetComponents() -> Array<T> {
+			auto GetComponents() -> Array<T>* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponents");
 				if (method) return method->Invoke<Array<T>*>(this);
@@ -1360,7 +1360,7 @@ public:
 			}
 
 			template <typename T>
-			auto GetComponents(Class* pClass) -> Array<T> {
+			auto GetComponents(Class* pClass) -> Array<T>* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponents", { "System.Type" });;
 				if (method) return method->Invoke<Array<T>*>(this, pClass->GetType().GetObject());
@@ -1368,7 +1368,7 @@ public:
 			}
 
 			template <typename T>
-			auto GetComponentsInParent() -> Array<T> {
+			auto GetComponentsInParent() -> Array<T>* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInParent");
 				if (method) return method->Invoke<Array<T>*>(this);
@@ -1376,7 +1376,7 @@ public:
 			}
 
 			template <typename T>
-			auto GetComponentsInParent(Class* pClass) -> Array<T> {
+			auto GetComponentsInParent(Class* pClass) -> Array<T>* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInParent", { "System.Type" });;
 				if (method) return method->Invoke<Array<T>*>(this, pClass->GetType().GetObject());
