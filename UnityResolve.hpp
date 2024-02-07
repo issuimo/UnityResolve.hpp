@@ -1713,28 +1713,32 @@ public:
 				throw std::logic_error("nullptr");
 			}
 
-			auto GetComponent() -> Component* {
+			template <typename T>
+			auto GetComponent() -> T {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent");
 				if (method) return method->Invoke<Component*>(this);
 				throw std::logic_error("nullptr");
 			}
 
-			auto GetComponent(const Class* type) -> Component* {
+			template <typename T>
+			auto GetComponent(const Class* type) -> T {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent", { "System.Type" });
 				if (method) return method->Invoke<Component*>(this, type->GetType().GetObject());
 				throw std::logic_error("nullptr");
 			}
 
-			auto GetComponentInChildren(const Class* type) -> Component* {
+			template <typename T>
+			auto GetComponentInChildren(const Class* type) -> T {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentInChildren", { "System.Type" });
 				if (method) return method->Invoke<Component*>(this, type->GetType().GetObject());
 				throw std::logic_error("nullptr");
 			}
 
-			auto GetComponentInParent(const Class* type) -> Component* {
+			template <typename T>
+			auto GetComponentInParent(const Class* type) -> T {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentInParent", { "System.Type" });
 				if (method) return method->Invoke<Component*>(this, type->GetType().GetObject());
