@@ -59,8 +59,8 @@ public:
 		std::string         file;
 		std::vector<Class*> classes;
 
-		[[nodiscard]] auto Get(const std::string& strClass, const std::string& strNamespace = "*") const -> Class* {
-			for (const auto pClass : classes) if (pClass->name == strClass && strNamespace == "*" ? true : pClass->namespaze == strNamespace) return pClass;
+		[[nodiscard]] auto Get(const std::string& strClass, const std::string& strNamespace = "*", const std::string& strParent = "*") const -> Class* {
+			for (const auto pClass : classes) if ((pClass->name == strClass || strNamespace == "*") && (pClass ->parent == strParent || pClass->parent == "*") ? true : pClass->namespaze == strNamespace) return pClass;
 			return nullptr;
 		}
 	};
