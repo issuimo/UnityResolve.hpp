@@ -1,5 +1,5 @@
 ﻿/*
- * Update: 2024-1-25 13:00
+ * Update: 2024-2-8 13:00
  * Source: https://github.com/issuimo/UnityResolve.hpp
  * Author: github@issuimo
  */
@@ -60,7 +60,7 @@ public:
 		std::vector<Class*> classes;
 
 		[[nodiscard]] auto Get(const std::string& strClass, const std::string& strNamespace = "*", const std::string& strParent = "*") const -> Class* {
-			for (const auto pClass : classes) if ((pClass->name == strClass || strNamespace == "*") && (pClass ->parent == strParent || pClass->parent == "*") ? true : pClass->namespaze == strNamespace) return pClass;
+			for (const auto pClass : classes) if ((strNamespace == "*" || pClass->name == strClass) && (pClass->parent == "*" || pClass->parent == strParent)) return pClass;
 			return nullptr;
 		}
 	};
