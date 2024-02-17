@@ -198,9 +198,7 @@ public:
 			try {
 				if (!badPtr) badPtr = !IsBadCodePtr(static_cast<FARPROC>(function));
 				if (function && badPtr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
-			} catch (...) {
-				return Return();
-			}
+			} catch (...) { }
 #else
 			if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
 #endif
@@ -2011,12 +2009,14 @@ public:
 			}
 		};
 
-		
-	private:
 		template <typename Return, typename... Args>
 		static auto Invoke(const void* address, Args... args) -> Return {
-			if (address != nullptr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
-			throw std::logic_error("nullptr");
+			static bool badPtr;
+			try {
+				if (!badPtr) badPtr = !IsBadCodePtr(static_cast<FARPROC>(function));
+				if (address != nullptr && badPtr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
+			} catch (...) { }
+			return Return();
 		}
 	};
 
