@@ -92,14 +92,16 @@ public:
 				for (auto pMethod : methods) {
 					if (pMethod->name == name) {
 						if (pMethod->args.size() == args.size()) {
-							for (size_t index{ 0 }; const auto & typeName : args) if (typeName == "*" || typeName.empty() ? false : pMethod->args[index++]->pType->name != typeName) goto next;
-							return static_cast<RType*>(pMethod);
+							if (args.size() == 0) {
+								return static_cast<RType*>(pMethod);
+							}
+							for (size_t index{ 0 }; const auto & typeName : args)
+							if (typeName == "*" || typeName.empty() ? false : pMethod->args[index++]->pType->name != typeName) {
+								return static_cast<RType*>(pMethod);
+							}
 						}
 					}
-				next: continue;
 				}
-
-				if (args.empty()) for (auto pMethod : methods) if (pMethod->name == name) return static_cast<RType*>(pMethod);
 			}
 			return nullptr;
 		}
