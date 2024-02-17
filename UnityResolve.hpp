@@ -60,7 +60,7 @@ public:
 		std::vector<Class*> classes;
 
 		[[nodiscard]] auto Get(const std::string& strClass, const std::string& strNamespace = "*", const std::string& strParent = "*") const -> Class* {
-			for (const auto pClass : classes) if ((strNamespace == "*" || pClass->name == strClass) && (strParent == "*" || pClass->parent == strParent)) return pClass;
+			for (const auto pClass : classes) if (strClass == pClass->name && (strNamespace == "*" || pClass->namespaze == strNamespace) && (strParent == "*" || pClass->parent == strParent)) return pClass;
 			return nullptr;
 		}
 	};
@@ -85,7 +85,7 @@ public:
 		std::vector<Method*> methods;
 
 		template <typename RType>
-		auto Get(const std::string& name, const std::vector<std::string>& args = {}) -> RType* {
+		auto Get(const std::string& name, const std::vector<std::string> args = {}) -> RType* {
 			if constexpr (std::is_same_v<RType, Field>) for (auto pField : fields) if (pField->name == name) return static_cast<RType*>(pField);
 			if constexpr (std::is_same_v<RType, std::int32_t>) for (const auto pField : fields) if (pField->name == name) return reinterpret_cast<RType*>(pField->offset);
 			if constexpr (std::is_same_v<RType, Method>) {
