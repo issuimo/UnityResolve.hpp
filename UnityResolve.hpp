@@ -1927,7 +1927,6 @@ public:
 		};
 
 		struct MonoBehaviour : Behaviour {
-			void* m_CancellationTokenSource;
 		};
 
 		struct Physics : Object {
