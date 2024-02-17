@@ -91,10 +91,10 @@ public:
 			if constexpr (std::is_same_v<RType, Method>) {
 				for (auto pMethod : methods) {
 					if (pMethod->name == name) {
+						if (pMethod->args.size() == 0 && args.size() == 0) {
+							return static_cast<RType*>(pMethod);
+						}
 						if (pMethod->args.size() == args.size()) {
-							if (args.size() == 0) {
-								return static_cast<RType*>(pMethod);
-							}
 							for (size_t index{ 0 }; const auto & typeName : args)
 							if (typeName == "*" || typeName.empty() ? false : pMethod->args[index++]->pType->name != typeName) {
 								return static_cast<RType*>(pMethod);
