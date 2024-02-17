@@ -2011,11 +2011,17 @@ public:
 
 		template <typename Return, typename... Args>
 		static auto Invoke(const void* address, Args... args) -> Return {
+#if WINDOWS_MODE
 			static bool badPtr;
 			try {
 				if (!badPtr) badPtr = !IsBadCodePtr(static_cast<FARPROC>(function));
 				if (address != nullptr && badPtr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
 			} catch (...) { }
+#elif
+			try {
+				if (address != nullptr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
+			} catch (...) { }
+#endif
 			return Return();
 		}
 	};
