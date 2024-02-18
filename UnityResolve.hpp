@@ -375,6 +375,9 @@ public:
 
 					if (pClass->fields[i]->type->name == "System.Boolean") {
 						io2 << std::format("\t\tbool {};\n", name);
+						if ((pClass->fields[i + 1]->offset - pClass->fields[i]->offset) > 1) {
+							io2 << std::format("\t\tchar {}[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - pClass->fields[i]->offset - 1);
+						}
 						continue;
 					}
 
