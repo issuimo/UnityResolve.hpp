@@ -128,7 +128,7 @@
 
 #### 转存储到文件 (DumpToFile)
 > ``` C++
-> UnityResolve::DumpToFile("./Dump.cs");
+> UnityResolve::DumpToFile("./output/");
 > ```
 
 #### 创建C#字符串 (Create C# String)
