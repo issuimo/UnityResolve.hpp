@@ -16,10 +16,8 @@
 #if WINDOWS_MODE || LINUX_MODE
 #include <format>
 #endif
-#include <codecvt>
 #include <fstream>
 #include <iostream>
-#include <locale>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -36,6 +34,8 @@
 #define UNITY_CALLING_CONVENTION __cdecl
 #endif
 #elif ANDROID_MODE || LINUX_MODE
+#include <codecvt>
+#include <locale>
 #include <dlfcn.h>
 #define UNITY_CALLING_CONVENTION
 #endif
@@ -85,7 +85,7 @@ public:
 		std::vector<Method*> methods;
 
 		template <typename RType>
-		auto Get(const std::string& name, const std::vector<std::string> args = {}) -> RType* {
+		auto Get(const std::string& name, const std::vector<std::string>& args = {}) -> RType* {
 			if constexpr (std::is_same_v<RType, Field>) for (auto pField : fields) if (pField->name == name) return static_cast<RType*>(pField);
 			if constexpr (std::is_same_v<RType, std::int32_t>) for (const auto pField : fields) if (pField->name == name) return reinterpret_cast<RType*>(pField->offset);
 			if constexpr (std::is_same_v<RType, Method>) {
@@ -95,11 +95,21 @@ public:
 							return static_cast<RType*>(pMethod);
 						}
 						if (pMethod->args.size() == args.size()) {
-							for (size_t index{ 0 }; const auto & typeName : args)
-							if (typeName == "*" || typeName.empty() ? false : pMethod->args[index++]->pType->name != typeName) {
+							size_t index{ 0 };
+							for (size_t i { 0 }; const auto & typeName : args)
+							if (typeName == "*" || typeName.empty() ? true : pMethod->args[i++]->pType->name == typeName) {
+								index++;
+							}
+							if (index == pMethod->args.size()) {
 								return static_cast<RType*>(pMethod);
 							}
 						}
+					}
+				}
+
+				for (auto pMethod : methods) {
+					if (pMethod->name == name) {
+						return static_cast<RType*>(pMethod);
 					}
 				}
 			}
