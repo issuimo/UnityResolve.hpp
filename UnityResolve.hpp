@@ -83,6 +83,7 @@ public:
 		std::string          namespaze;
 		std::vector<Field*>  fields;
 		std::vector<Method*> methods;
+		void* objType;
 
 		template <typename RType>
 		auto Get(const std::string& name, const std::vector<std::string>& args = {}) -> RType* {
@@ -142,16 +143,14 @@ public:
 			static Method* pMethod;
 
 			if (!pMethod) pMethod = UnityResolve::Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>(mode_ == Mode::Il2Cpp ? "FindObjectsOfType" : "FindObjectsOfTypeAll", { "System.Type" });
+			if (!objType) { objType = this->GetType().GetObject(); }
 
-			if (pMethod) {
-				std::vector<T> rs{};
-				auto           array = pMethod->Invoke<UnityType::Array<T>*>(this->GetType().GetObject());
-				rs.reserve(array->max_length);
-				for (auto i = 0; i < array->max_length; i++) rs.push_back(array->At(i));
-				return rs;
+			if (pMethod && objType) {
+				auto array = pMethod->Invoke<UnityType::Array<T>*>(objType);
+				return array->ToVector();
 			}
 
-			throw std::logic_error("FindObjectsOfType nullptr");
+			return std::vector<T>();
 		}
 
 		template <typename T>
@@ -1549,7 +1548,7 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_transform");
 				if (method) return method->Invoke<Transform*>(this);
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			auto GetGameObject() -> GameObject* {
@@ -1567,51 +1566,63 @@ public:
 			}
 
 			template <typename T>
-			auto GetComponentsInChildren() -> Array<T>* {
+			auto GetComponentsInChildren() -> std::vector<T> {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren");
-				if (method) return method->Invoke<Array<T>*>(this);
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<Array<T>*>(this)->ToVector();
+				return {};
 			}
 
 			template <typename T>
-			auto GetComponentsInChildren(Class* pClass) -> Array<T>* {
+			auto GetComponentsInChildren(Class* pClass) -> std::vector<T> {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren", { "System.Type" });;
-				if (method) return method->Invoke<Array<T>*>(this, pClass->GetType().GetObject());
-				throw std::logic_error("nullptr");
+				static void* obj;
+				if (!method || !obj) { 
+					method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren", { "System.Type" });
+					obj = pClass->GetType().GetObject();
+				}
+				if (method) return method->Invoke<Array<T>*>(this, obj)->ToVector();
+				return {};
 			}
 
 			template <typename T>
-			auto GetComponents() -> Array<T>* {
+			auto GetComponents() -> std::vector<T> {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponents");
-				if (method) return method->Invoke<Array<T>*>(this);
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<Array<T>*>(this)->ToVector();
+				return {};
 			}
 
 			template <typename T>
-			auto GetComponents(Class* pClass) -> Array<T>* {
+			auto GetComponents(Class* pClass) -> std::vector<T> {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponents", { "System.Type" });;
-				if (method) return method->Invoke<Array<T>*>(this, pClass->GetType().GetObject());
-				throw std::logic_error("nullptr");
+				static void* obj;
+				if (!method || !obj) {
+					method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponents", { "System.Type" });
+					obj = pClass->GetType().GetObject();
+				}
+				if (method) return method->Invoke<Array<T>*>(this, obj)->ToVector();
+				return {};
 			}
 
 			template <typename T>
-			auto GetComponentsInParent() -> Array<T>* {
+			auto GetComponentsInParent() -> std::vector<T> {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInParent");
-				if (method) return method->Invoke<Array<T>*>(this);
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<Array<T>*>(this)->ToVector();
+				return {};
 			}
 
 			template <typename T>
-			auto GetComponentsInParent(Class* pClass) -> Array<T>* {
+			auto GetComponentsInParent(Class* pClass) -> std::vector<T> {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInParent", { "System.Type" });;
-				if (method) return method->Invoke<Array<T>*>(this, pClass->GetType().GetObject());
-				throw std::logic_error("nullptr");
+				static void* obj;
+				if (!method || !obj) {
+					method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInParent", { "System.Type" });
+					obj = pClass->GetType().GetObject();
+				}
+				if (method) return method->Invoke<Array<T>*>(this, obj)->ToVector();
+				return {};
 			}
 
 			template <typename T>
@@ -1619,7 +1630,7 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentInChildren", { "System.Type" });;
 				if (method) return method->Invoke<T>(this, pClass->GetType().GetObject());
-				throw std::logic_error("nullptr");
+				return T();
 			}
 
 			template <typename T>
@@ -1627,7 +1638,7 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentInParent", { "System.Type" });;
 				if (method) return method->Invoke<T>(this, pClass->GetType().GetObject());
-				throw std::logic_error("nullptr");
+				return T();
 			}
 		};
 
@@ -1692,14 +1703,20 @@ public:
 
 			auto WorldToScreenPoint(const Vector3& position, const Eye eye) -> Vector3 {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>(mode_ == Mode::Mono ? "WorldToScreenPoint_Injected" : "WorldToScreenPoint");
+				if (!method) { 
+					if (mode_ == Mode::Mono) {
+						method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("WorldToScreenPoint_Injected");
+					} else {
+						method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("WorldToScreenPoint", {"*", "*"});
+					}
+				} 
 				if (mode_ == Mode::Mono && method) {
 					const Vector3 vec3{};
 					method->Invoke<void>(this, position, eye, &vec3);
 					return vec3;
 				}
 				if (method) return method->Invoke<Vector3>(this, position, eye);
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto ScreenToWorldPoint(const Vector3& position, const Eye eye) -> Vector3 {
@@ -1711,7 +1728,7 @@ public:
 					return vec3;
 				}
 				if (method) return method->Invoke<Vector3>(this, position, eye);
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto CameraToWorldMatrix() -> Matrix4x4 {
@@ -1723,7 +1740,7 @@ public:
 					return matrix4;
 				}
 				if (method) return method->Invoke<Matrix4x4>(this);
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
@@ -1745,7 +1762,7 @@ public:
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_position_Injected" : "set_position");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
-				throw std::logic_error("nullptr");
+				return;
 			}
 
 			auto GetRotation() -> Quaternion {
@@ -1765,7 +1782,7 @@ public:
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_rotation_Injected" : "set_rotation");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
-				throw std::logic_error("nullptr");
+				return;
 			}
 
 			auto GetLocalPosition() -> Vector3 {
@@ -1785,7 +1802,7 @@ public:
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_localPosition_Injected" : "set_localPosition");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
-				throw std::logic_error("nullptr");
+				return;
 			}
 
 			auto GetLocalRotation() -> Quaternion {
@@ -1805,7 +1822,7 @@ public:
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_localRotation_Injected" : "set_localRotation");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
-				throw std::logic_error("nullptr");
+				return;
 			}
 
 			auto GetLocalScale() -> Vector3 {
@@ -1825,35 +1842,35 @@ public:
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_localScale_Injected" : "set_localScale");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
-				throw std::logic_error("nullptr");
+				return;
 			}
 
 			auto GetChildCount() -> int {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_childCount");
 				if (method) return method->Invoke<int>(this);
-				throw std::logic_error("nullptr");
+				return 0;
 			}
 
 			auto GetChild(const int index) -> Transform* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("GetChild");
 				if (method) return method->Invoke<Transform*>(this, index);
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			auto GetRoot() -> Transform* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("GetRoot");
 				if (method) return method->Invoke<Transform*>(this);
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			auto GetParent() -> Transform* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("GetParent");
 				if (method) return method->Invoke<Transform*>(this);
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			auto GetLossyScale() -> Vector3 {
@@ -1884,14 +1901,14 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("LookAt", { "Vector3" });
 				if (method) return method->Invoke<void>(this, worldPosition);
-				throw std::logic_error("nullptr");
+				return;
 			}
 
 			auto Rotate(const Vector3& eulers) -> void {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("Rotate", { "Vector3" });
 				if (method) return method->Invoke<void>(this, eulers);
-				throw std::logic_error("nullptr");
+				return;
 			}
 		};
 
@@ -2246,7 +2263,7 @@ public:
 #if WINDOWS_MODE
 			static bool badPtr;
 			try {
-				if (!badPtr) badPtr = !IsBadCodePtr(static_cast<FARPROC>(function));
+				if (!badPtr) badPtr = !IsBadCodePtr(static_cast<FARPROC>(address));
 				if (address != nullptr && badPtr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
 			}
 			catch (...) {}
