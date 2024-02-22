@@ -558,7 +558,8 @@ public:
 		std::lock_guard   lock(mutex);
 
 		// 检查函数是否已经获取地址, 没有则自动获取
-		if (!address_.contains(funcName) || address_[funcName] == nullptr) {
+		// if (!address_.contains(funcName) || address_[funcName] == nullptr) {
+		if (address_.find(funcName) == address_.end() || address_[funcName] == nullptr) {
 #if WINDOWS_MODE
 			address_[funcName] = static_cast<void*>(GetProcAddress(static_cast<HMODULE>(hmodule_), funcName.c_str()));
 #elif  ANDROID_MODE || LINUX_MODE
