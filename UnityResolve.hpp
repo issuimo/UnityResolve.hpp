@@ -2268,7 +2268,7 @@ public:
 				if (address != nullptr && badPtr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
 			}
 			catch (...) {}
-#elif LINUX_MODE | ANDROID_MODE
+#elif LINUX_MODE || ANDROID_MODE
 			try {
 				if (address != nullptr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
 			}
