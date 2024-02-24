@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Update: 2024-2-8 13:00
  * Source: https://github.com/issuimo/UnityResolve.hpp
  * Author: github@issuimo
@@ -361,8 +361,8 @@ public:
 					}
 
 					std::string name = field->name;
-					std::replace(name.begin(), name.end(), '<', '_');
-					std::replace(name.begin(), name.end(), '>', '_'); 
+					name.replace(name.begin(), name.end(), '<', '_');
+					name.replace(name.begin(), name.end(), '>', '_');
 
 					if (field->type->name == "System.Int64") {
 						io2 << std::format("\t\tstd::int64_t {};\n", name);
@@ -1384,8 +1384,7 @@ public:
 				return rs;
 			}
 
-			template <typename T>
-			static auto New(const Class* kalss, const std::uintptr_t size) -> Array<T>* {
+			static auto New(const Class* kalss, const std::uintptr_t size) -> Array* {
 				if (mode_ == Mode::Il2Cpp) return UnityResolve::Invoke<Array*, void*, std::uintptr_t>("il2cpp_array_new", kalss->classinfo, size);
 				return UnityResolve::Invoke<Array*, void*, void*, std::uintptr_t>("mono_array_new", pDomain, kalss->classinfo, size);
 			}
@@ -1400,8 +1399,7 @@ public:
 
 			auto ToArray() -> Array<Type>* { return pList; }
 
-			template <typename T>
-			static auto New(const Class* kalss, const std::uintptr_t size) -> List<T>* {
+			static auto New(const Class* kalss, const std::uintptr_t size) -> List* {
 				auto pList = new List<Type>();
 				pList->pList = Array<Type>::New(kalss, size);
 				pList->size = size;
