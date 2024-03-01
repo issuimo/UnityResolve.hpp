@@ -361,8 +361,8 @@ public:
 					}
 
 					std::string name = field->name;
-					std::replace(name.begin(), name.end(), '<', '_');
-					std::replace(name.begin(), name.end(), '>', '_'); 
+					name.replace(name.begin(), name.end(), '<', '_');
+					name.replace(name.begin(), name.end(), '>', '_');
 
 					if (field->type->name == "System.Int64") {
 						io2 << std::format("\t\tstd::int64_t {};\n", name);
@@ -2009,13 +2009,6 @@ public:
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_transform");
 				if (method) return method->Invoke<Transform*>(this);
 				return nullptr;
-			}
-
-			auto GetIsStatic() -> bool {
-				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_isStatic");
-				if (method) return method->Invoke<bool>(this);
-				throw std::logic_error("nullptr");
 			}
 
 			auto GetTag() -> String* {
