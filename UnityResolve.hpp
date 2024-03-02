@@ -1,5 +1,5 @@
 /*
- * Update: 2024-2-8 13:00
+ * Update: 2024-3-2 22:11
  * Source: https://github.com/issuimo/UnityResolve.hpp
  * Author: github@issuimo
  */
@@ -229,18 +229,16 @@ public:
 			}
 
 			if (mode_ == Mode::Il2Cpp) {
-				if constexpr (std::is_same_v<Return, void>) {
+				if constexpr (std::is_void_v<Return>) {
 					UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc);
 					return;
-				}
-				else return *static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc));
+				} else return *static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc));
 			}
 
-			if constexpr (std::is_same_v<Return, void>) {
+			if constexpr (std::is_void_v<Return>) {
 				UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc);
 				return;
-			}
-			else return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
+			} else return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
 		}
 
 		template <typename Return, typename... Args>
