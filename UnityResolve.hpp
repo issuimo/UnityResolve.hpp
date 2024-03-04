@@ -39,6 +39,7 @@
 #include <dlfcn.h>
 #define UNITY_CALLING_CONVENTION
 #endif
+#include <codecvt>
 
 class UnityResolve final {
 public:
@@ -1703,7 +1704,11 @@ public:
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("set_depth", { "*" });
 				if (method) return method->Invoke<void>(this, depth);
 			}
-
+			auto SetFoV(const float fov) {
+				static Method* method_fieldOfView;
+				if (!method_fieldOfView) method_fieldOfView = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("set_fieldOfView", { "*" });
+				if (method_fieldOfView) return method_fieldOfView->Invoke<void>(this, fov);
+			}
 			auto WorldToScreenPoint(const Vector3& position, const Eye eye) -> Vector3 {
 				static Method* method;
 				if (!method) { 
