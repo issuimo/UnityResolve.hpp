@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Update: 2024-3-2 22:11
  * Source: https://github.com/issuimo/UnityResolve.hpp
  * Author: github@issuimo
@@ -22,6 +22,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <codecvt>
 #if WINDOWS_MODE
 #include <windows.h>
 #undef GetObject 
@@ -34,12 +35,10 @@
 #define UNITY_CALLING_CONVENTION __cdecl
 #endif
 #elif ANDROID_MODE || LINUX_MODE
-#include <codecvt>
 #include <locale>
 #include <dlfcn.h>
 #define UNITY_CALLING_CONVENTION
 #endif
-#include <codecvt>
 
 class UnityResolve final {
 public:
@@ -93,14 +92,15 @@ public:
 			if constexpr (std::is_same_v<RType, Method>) {
 				for (auto pMethod : methods) {
 					if (pMethod->name == name) {
-						if (pMethod->args.size() == 0 && args.size() == 0) {
+						if (pMethod->args.empty() && args.empty()) {
 							return static_cast<RType*>(pMethod);
 						}
 						if (pMethod->args.size() == args.size()) {
 							size_t index{ 0 };
-							for (size_t i { 0 }; const auto & typeName : args)
-							if (typeName == "*" || typeName.empty() ? true : pMethod->args[i++]->pType->name == typeName) {
-								index++;
+							for (size_t i { 0 }; const auto & typeName : args) {
+								if (typeName == "*" || typeName.empty() ? true : pMethod->args[i++]->pType->name == typeName) {
+									index++;
+								}
 							}
 							if (index == pMethod->args.size()) {
 								return static_cast<RType*>(pMethod);
@@ -535,7 +535,7 @@ public:
 				}
 
 				io2 << "\n";
-				io2 << "\t}\n\n";
+				io2 << "\t};\n\n";
 			}
 		}
 		io2 << '\n';
@@ -567,7 +567,7 @@ public:
 		}
 
 		if (address_[funcName] != nullptr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(address_[funcName])(args...);
-		throw std::logic_error("Not find function");
+        Return();
 	}
 
 	inline static std::vector<Assembly*> assembly;
@@ -1293,21 +1293,10 @@ public:
 			wchar_t m_firstChar[32]{};
 
 			[[nodiscard]] auto ToString() const -> std::string {
-				if (!this) { return std::string(); }
-#if WINDOWS_MODE
+				if (!this) { return {}; }
 				using convert_typeX = std::codecvt_utf8<wchar_t>;
 				std::wstring_convert<convert_typeX, wchar_t> converterX;
 				return converterX.to_bytes(m_firstChar);
-#elif LINUX_MODE
-				using convert_typeX = std::codecvt_utf8<wchar_t>;
-				std::wstring_convert<convert_typeX, wchar_t> converterX;
-				return converterX.to_bytes(m_firstChar);
-#elif ANDROID_MODE
-				// 可能存在bug 目前已有报告 "比如对象标签 有的时候会直接跳到游戏控制器里面去"
-				using convert_typeX = std::codecvt_utf8<wchar_t>;
-				std::wstring_convert<convert_typeX, wchar_t> converterX;
-				return converterX.to_bytes(m_firstChar);
-#endif
 			}
 
 			auto operator[](const int i) const -> wchar_t { return m_firstChar[i]; }
@@ -1704,11 +1693,20 @@ public:
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("set_depth", { "*" });
 				if (method) return method->Invoke<void>(this, depth);
 			}
-			auto SetFoV(const float fov) {
-				static Method* method_fieldOfView;
-				if (!method_fieldOfView) method_fieldOfView = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("set_fieldOfView", { "*" });
-				if (method_fieldOfView) return method_fieldOfView->Invoke<void>(this, fov);
-			}
+
+			auto SetFoV(const float fov) -> void {
+                static Method *method_fieldOfView;
+                if (!method_fieldOfView) method_fieldOfView = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("set_fieldOfView", {"*"});
+                if (method_fieldOfView) return method_fieldOfView->Invoke<void>(this, fov);
+            }
+
+			auto GetFoV() -> float {
+                static Method *method_fieldOfView;
+                if (!method_fieldOfView) method_fieldOfView = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("get_fieldOfView");
+                if (method_fieldOfView) return method_fieldOfView->Invoke<float>(this);
+                return 0.0f;
+            }
+
 			auto WorldToScreenPoint(const Vector3& position, const Eye eye) -> Vector3 {
 				static Method* method;
 				if (!method) { 
@@ -2324,7 +2322,7 @@ public:
 #if WINDOWS_MODE
 			static bool badPtr;
 			try {
-				if (!badPtr) badPtr = !IsBadCodePtr(static_cast<FARPROC>(address));
+                if (!badPtr) badPtr = !IsBadCodePtr(FARPROC(address));
 				if (address != nullptr && badPtr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
 			}
 			catch (...) {}
