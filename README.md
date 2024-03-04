@@ -141,7 +141,7 @@
 > ``` c++
 > const auto assembly = UnityResolve::Get("assembly.dll | 程序集名称.dll");
 > const auto pClass   = assembly->Get("className | 类名称");
-> const auto array    = UnityResolve::UnityType::Array::New(pClass, size);
+> const auto array    = UnityResolve::UnityType::Array<T>::New(pClass, size);
 > std::vector<T> cppVector = array.ToVector();
 > ```
 
