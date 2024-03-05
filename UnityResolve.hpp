@@ -83,7 +83,6 @@ public:
 		std::string          name;
 		std::string          parent;
 		std::string          namespaze;
-		std::string          type;
 		std::vector<Field*>  fields;
 		std::vector<Method*> methods;
 		void*                objType;
@@ -564,14 +563,9 @@ private:
 				if (pClass == nullptr) continue;
 				const auto pAClass = new Class();
 				pAClass->address   = pClass;
-				pAClass->type      = "Class";
-				if (Invoke<bool>("il2cpp_class_is_generic", pClass)) pAClass->type = "Generic";
-				if (Invoke<bool>("il2cpp_class_is_enum", pClass)) pAClass->type = "Enum";
-				if (Invoke<bool>("il2cpp_class_is_valuetype", pClass)) pAClass->type = "ValueType";
 				pAClass->name = Invoke<const char*>("il2cpp_class_get_name", pClass);
 				if (const auto pPClass = Invoke<void*>("il2cpp_class_get_parent", pClass)) pAClass->parent = Invoke<const char*>("il2cpp_class_get_name", pPClass);
 				pAClass->namespaze = Invoke<const char*>("il2cpp_class_get_namespace", pClass);
-				if (Invoke<bool>("il2cpp_class_is_subclass_of", pClass, Invoke<void*>("il2cpp_class_get_parent", pClass), true)) pAClass->type = "SubClass";
 				assembly->classes.push_back(pAClass);
 
 				ForeachFields(pAClass, pClass);
@@ -595,14 +589,9 @@ private:
 
 				const auto pAClass = new Class();
 				pAClass->address   = pClass;
-				pAClass->type      = "Class";
-				if (Invoke<bool>("mono_class_is_generic", pClass)) pAClass->type = "Generic";
-				if (Invoke<bool>("mono_class_is_enum", pClass)) pAClass->type = "Enum";
-				if (Invoke<bool>("mono_class_is_valuetype", pClass)) pAClass->type = "ValueType";
 				pAClass->name = Invoke<const char*>("mono_class_get_name", pClass);
 				if (const auto pPClass = Invoke<void*>("mono_class_get_parent", pClass)) pAClass->parent = Invoke<const char*>("mono_class_get_name", pPClass);
 				pAClass->namespaze = Invoke<const char*>("mono_class_get_namespace", pClass);
-				if (Invoke<bool>("mono_class_is_subclass_of", pClass, Invoke<void*>("mono_class_get_parent", pClass), true)) pAClass->type = "SubClass";
 				assembly->classes.push_back(pAClass);
 
 				ForeachFields(pAClass, pClass);
