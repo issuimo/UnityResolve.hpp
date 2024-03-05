@@ -79,10 +79,11 @@ public:
 	};
 
 	struct Class final {
-		void* classinfo;
+        void                *address;
 		std::string          name;
 		std::string          parent;
 		std::string          namespaze;
+        std::string          type;
 		std::vector<Field*>  fields;
 		std::vector<Method*> methods;
 		void* objType;
@@ -128,10 +129,10 @@ public:
 
 		[[nodiscard]] auto GetType() const -> Type {
 			if (mode_ == Mode::Il2Cpp) {
-				const auto pUType = Invoke<void*, void*>("il2cpp_class_get_type", classinfo);
+                const auto pUType = Invoke<void *, void *>("il2cpp_class_get_type", address);
 				return { pUType, name, -1 };
 			}
-			const auto pUType = Invoke<void*, void*>("mono_class_get_type", classinfo);
+            const auto pUType = Invoke<void *, void *>("mono_class_get_type", address);
 			return { pUType, name, -1 };
 		}
 
@@ -158,13 +159,13 @@ public:
 
 		template <typename T>
 		auto New() -> T* {
-			if (mode_ == Mode::Il2Cpp) return Invoke<T*, void*>("il2cpp_object_new", classinfo);
-			return Invoke<T*, void*, void*>("mono_object_new", pDomain, classinfo);
+            if (mode_ == Mode::Il2Cpp) return Invoke<T *, void *>("il2cpp_object_new", address);
+            return Invoke<T *, void *, void *>("mono_object_new", pDomain, address);
 		}
 	};
 
 	struct Field final {
-		void* fieldinfo;
+        void        *address;
 		std::string  name;
 		Type* type;
 		Class* klass;
@@ -175,13 +176,13 @@ public:
 		template <typename T>
 		auto SetValue(T* value) const -> void {
 			if (!static_field) return;
-			if (mode_ == Mode::Il2Cpp) return Invoke<void, void*, T*>("il2cpp_field_static_set_value", fieldinfo, value);
+            if (mode_ == Mode::Il2Cpp) return Invoke<void, void *, T *>("il2cpp_field_static_set_value", address, value);
 		}
 
 		template <typename T>
 		auto GetValue(T* value) const -> void {
 			if (!static_field) return;
-			if (mode_ == Mode::Il2Cpp) return Invoke<void, void*, T*>("il2cpp_field_static_get_value", fieldinfo, value);
+            if (mode_ == Mode::Il2Cpp) return Invoke<void, void *, T *>("il2cpp_field_static_get_value", address, value);
 		}
 	};
 
@@ -622,10 +623,23 @@ private:
 				const auto pClass = Invoke<void*>("il2cpp_image_get_class", image, i);
 				if (pClass == nullptr) continue;
 				const auto pAClass = new Class();
-				pAClass->classinfo = pClass;
+                pAClass->address   = pClass;
+                pAClass->type      = "Class";
+                if (Invoke<bool>("il2cpp_class_is_generic", pClass)) {
+                    pAClass->type = "Generic";
+                }
+                if (Invoke<bool>("il2cpp_class_is_enum", pClass)) {
+                    pAClass->type = "Enum";
+                }
+                if (Invoke<bool>("il2cpp_class_is_valuetype", pClass)) {
+                    pAClass->type = "ValueType";
+                }
 				pAClass->name = Invoke<const char*>("il2cpp_class_get_name", pClass);
 				if (const auto pPClass = Invoke<void*>("il2cpp_class_get_parent", pClass)) pAClass->parent = Invoke<const char*>("il2cpp_class_get_name", pPClass);
 				pAClass->namespaze = Invoke<const char*>("il2cpp_class_get_namespace", pClass);
+                if (Invoke<bool>("il2cpp_class_is_subclass_of", pClass, Invoke<void*>("il2cpp_class_get_parent", pClass), true)) {
+                    pAClass->type = "SubClass";
+                }
 				assembly->classes.push_back(pAClass);
 
 				ForeachFields(pAClass, pClass);
@@ -649,10 +663,23 @@ private:
 				if (pClass == nullptr) continue;
 
 				const auto pAClass = new Class();
-				pAClass->classinfo = pClass;
+                pAClass->address   = pClass;
+                pAClass->type      = "Class";
+                if (Invoke<bool>("mono_class_is_generic", pClass)) {
+                    pAClass->type = "Generic";
+                }
+                if (Invoke<bool>("mono_class_is_enum", pClass)) {
+                    pAClass->type = "Enum";
+                }
+                if (Invoke<bool>("mono_class_is_valuetype", pClass)) {
+                    pAClass->type = "ValueType";
+                }
 				pAClass->name = Invoke<const char*>("mono_class_get_name", pClass);
 				if (const auto pPClass = Invoke<void*>("mono_class_get_parent", pClass)) pAClass->parent = Invoke<const char*>("mono_class_get_name", pPClass);
 				pAClass->namespaze = Invoke<const char*>("mono_class_get_namespace", pClass);
+                if (Invoke<bool>("mono_class_is_subclass_of", pClass, Invoke<void *>("mono_class_get_parent", pClass), true)) {
+                    pAClass->type = "SubClass";
+                }
 				assembly->classes.push_back(pAClass);
 
 				ForeachFields(pAClass, pClass);
@@ -678,7 +705,7 @@ private:
 			void* field;
 			do {
 				if ((field = Invoke<void*>("il2cpp_class_get_fields", pKlass, &iter))) {
-					const auto pField = new Field{ .fieldinfo = field, .name = Invoke<const char*>("il2cpp_field_get_name", field), .type = new Type{.address = Invoke<void*>("il2cpp_field_get_type", field)}, .klass = klass, .offset = Invoke<int>("il2cpp_field_get_offset", field), .static_field = false, .vTable = nullptr };
+                    const auto pField = new Field{.address = field, .name = Invoke<const char *>("il2cpp_field_get_name", field), .type = new Type{.address = Invoke<void *>("il2cpp_field_get_type", field)}, .klass = klass, .offset = Invoke<int>("il2cpp_field_get_offset", field), .static_field = false, .vTable = nullptr};
 					int        tSize{};
 					pField->static_field = pField->offset <= 0;
 					pField->type->name = Invoke<const char*>("il2cpp_type_get_name", pField->type->address);
@@ -692,7 +719,7 @@ private:
 			void* field;
 			do {
 				if ((field = Invoke<void*>("mono_class_get_fields", pKlass, &iter))) {
-					const auto pField = new Field{ .fieldinfo = field, .name = Invoke<const char*>("mono_field_get_name", field), .type = new Type{.address = Invoke<void*>("mono_field_get_type", field)}, .klass = klass, .offset = Invoke<int>("mono_field_get_offset", field), .static_field = false, .vTable = nullptr };
+                    const auto pField = new Field{.address = field, .name = Invoke<const char *>("mono_field_get_name", field), .type = new Type{.address = Invoke<void *>("mono_field_get_type", field)}, .klass = klass, .offset = Invoke<int>("mono_field_get_offset", field), .static_field = false, .vTable = nullptr};
 					int        tSize{};
 					pField->static_field = pField->offset <= 0;
 					pField->type->name = Invoke<const char*>("mono_type_get_name", pField->type->address);
@@ -757,7 +784,11 @@ private:
 					do {
 						if ((mType = Invoke<void*>("mono_signature_get_params", signature, &mIter))) {
 							int t_size{};
-							pMethod->args.push_back(new Method::Arg{ names[iname], new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size)} });
+							try {
+                                pMethod->args.push_back(new Method::Arg{names[iname], new Type{.address = mType, .name = Invoke<const char *>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size)}});
+							} catch (...) {
+								// USE SEH!!!
+							}
 							iname++;
 						}
 					} while (mType);
@@ -1376,8 +1407,8 @@ public:
 			}
 
 			static auto New(const Class* kalss, const std::uintptr_t size) -> Array* {
-				if (mode_ == Mode::Il2Cpp) return UnityResolve::Invoke<Array*, void*, std::uintptr_t>("il2cpp_array_new", kalss->classinfo, size);
-				return UnityResolve::Invoke<Array*, void*, void*, std::uintptr_t>("mono_array_new", pDomain, kalss->classinfo, size);
+				if (mode_ == Mode::Il2Cpp) return UnityResolve::Invoke<Array*, void*, std::uintptr_t>("il2cpp_array_new", kalss->address, size);
+                return UnityResolve::Invoke<Array *, void *, void *, std::uintptr_t>("mono_array_new", pDomain, kalss->address, size);
 			}
 		};
 
