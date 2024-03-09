@@ -23,6 +23,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "UnityResolve.hpp"
 #if WINDOWS_MODE
 #include <windows.h>
 #undef GetObject
@@ -1229,18 +1231,18 @@ public:
 
 		struct String : Object {
 			int32_t  m_stringLength{0};
-			wchar_t* m_firstChar{};
+			wchar_t m_firstChar[32]{};
 
 			[[nodiscard]] auto ToString() const -> std::string {
-				if (!this) return {};
+				if (!this) return {""};
 				using convert_typeX = std::codecvt_utf8<wchar_t>;
-				std::wstring_convert<convert_typeX, wchar_t> converterX;
+				std::wstring_convert<convert_typeX> converterX;
 				return converterX.to_bytes(m_firstChar);
 			}
 
 			auto operator[](const int i) const -> wchar_t { return m_firstChar[i]; }
 
-			auto operator=(const std::wstring& newString) -> String* { return Copy(newString); }
+			auto operator=(const std::string& newString) const -> String* { return New(newString); }
 
 			auto operator==(const std::wstring& newString) const -> bool { return Equals(newString); }
 
@@ -1248,17 +1250,6 @@ public:
 				if (!this) return;
 				memset(m_firstChar, 0, m_stringLength);
 				m_stringLength = 0;
-			}
-
-			auto Copy(const std::wstring& newString) -> String* {
-				if (!this) return nullptr;
-				const auto size   = newString.size();
-				const auto strPtr = new wchar_t[size];
-				std::memcpy(strPtr, newString.data(), size);
-				free(m_firstChar);
-				m_firstChar    = strPtr;
-				m_stringLength = size;
-				return this;
 			}
 
 			auto Equals(const std::wstring& newString) const -> bool {
@@ -1507,6 +1498,7 @@ public:
 
 		struct Component : UnityObject {
 			auto GetTransform() -> Transform* {
+				if (!this) return nullptr;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_transform");
 				if (method) return method->Invoke<Transform*>(this);
@@ -1514,6 +1506,7 @@ public:
 			}
 
 			auto GetGameObject() -> GameObject* {
+				if (!this) return nullptr;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_gameObject");
 				if (method) return method->Invoke<GameObject*>(this);
@@ -1521,6 +1514,7 @@ public:
 			}
 
 			auto GetTag() -> std::string {
+				if (!this) return "";
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_tag");
 				if (method) return method->Invoke<String*>(this)->ToString();
@@ -2293,6 +2287,10 @@ public:
 #endif
 			return Return();
 		}
+
+		struct IntPtr : Object {
+			void* m_value;
+		};
 	};
 
 private:
