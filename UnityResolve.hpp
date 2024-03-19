@@ -116,13 +116,16 @@ public:
 		template <typename RType>
 		auto SetValue(void* obj, const std::string& name, RType value) -> void { return *reinterpret_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset) = value; }
 
-		[[nodiscard]] auto GetType() const -> Type {
+		[[nodiscard]] auto GetType() -> void* {
+			if (objType) return objType;
 			if (mode_ == Mode::Il2Cpp) {
 				const auto pUType = Invoke<void*, void*>("il2cpp_class_get_type", address);
-				return {pUType, name, -1};
+				objType = Invoke<void*>("il2cpp_type_get_object", pUType);
+				return objType;
 			}
 			const auto pUType = Invoke<void*, void*>("mono_class_get_type", address);
-			return {pUType, name, -1};
+			objType = Invoke<void*>("mono_type_get_object", pDomain, pUType);
+			return objType;
 		}
 
 		/**
@@ -136,7 +139,7 @@ public:
 			static Method* pMethod;
 
 			if (!pMethod) pMethod = UnityResolve::Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>(mode_ == Mode::Il2Cpp ? "FindObjectsOfType" : "FindObjectsOfTypeAll", {"System.Type"});
-			if (!objType) objType = this->GetType().GetCSType();
+			if (!objType) objType = this->GetType();
 
 			if (pMethod && objType) {
 				auto array = pMethod->Invoke<UnityType::Array<T>*>(objType);
@@ -502,14 +505,15 @@ public:
 		std::lock_guard   lock(mutex);
 
 		// 检查函数是否已经获取地址, 没有则自动获取
-		// if (!address_.contains(funcName) || address_[funcName] == nullptr) {
-		if (!address_.contains(funcName) || address_[funcName] == nullptr) {
 #if WINDOWS_MODE
+		if (!address_.contains(funcName) || address_[funcName] == nullptr) {
 			address_[funcName] = static_cast<void*>(GetProcAddress(static_cast<HMODULE>(hmodule_), funcName.c_str()));
-#elif  ANDROID_MODE || LINUX_MODE
-			address_[funcName] = dlsym(hmodule_, funcName.c_str());
-#endif
 		}
+#elif  ANDROID_MODE || LINUX_MODE
+		if (address_.find(funcName) == address_.end() || address_[funcName] == nullptr) {
+			address_[funcName] = dlsym(hmodule_, funcName.c_str());
+		}
+#endif
 
 		if (address_[funcName] != nullptr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(address_[funcName])(args...);
 		Return();
@@ -1195,14 +1199,14 @@ public:
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Object")->Get<Method>("GetType");
 				if (method) return method->Invoke<CsType*>(this);
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			auto ToString() -> std::string {
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Object")->Get<Method>("ToString");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
@@ -1211,21 +1215,21 @@ public:
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type")->Get<Method>("FormatTypeName");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto GetFullName() -> std::string {
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type")->Get<Method>("get_FullName");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto GetNamespace() -> std::string {
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type")->Get<Method>("get_Namespace");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
@@ -1234,10 +1238,14 @@ public:
 			wchar_t m_firstChar[32]{};
 
 			[[nodiscard]] auto ToString() const -> std::string {
-				if (!this) return {""};
-				using convert_typeX = std::codecvt_utf8<wchar_t>;
-				std::wstring_convert<convert_typeX> converterX;
-				return converterX.to_bytes(m_firstChar);
+				if (!this) return {};
+				try {
+					using convert_typeX = std::codecvt_utf8<wchar_t>;
+					std::wstring_convert<convert_typeX> converterX;
+					return converterX.to_bytes(m_firstChar);
+				} catch (...) {
+					return {};
+				}
 			}
 
 			auto operator[](const int i) const -> wchar_t { return m_firstChar[i]; }
@@ -1252,7 +1260,7 @@ public:
 				m_stringLength = 0;
 			}
 
-			auto Equals(const std::wstring& newString) const -> bool {
+			[[nodiscard]] auto Equals(const std::wstring& newString) const -> bool {
 				if (!this) return false;
 				if (newString.size() != m_stringLength) return false;
 				if (std::memcmp(newString.data(), m_firstChar, m_stringLength) != 0) return false;
@@ -1321,10 +1329,14 @@ public:
 
 			auto ToVector() -> std::vector<T> {
 				if (!this) return {};
-				std::vector<T> rs{};
-				rs.reserve(this->max_length);
-				for (auto i = 0; i < this->max_length; i++) rs.push_back(this->At(i));
-				return rs;
+				try {
+					std::vector<T> rs{};
+					rs.reserve(this->max_length);
+					for (auto i = 0; i < this->max_length; i++) rs.push_back(this->At(i));
+					return rs;
+				} catch (...) {
+					return {};
+				}
 			}
 
 			auto Resize(int newSize) -> void {
@@ -1405,7 +1417,6 @@ public:
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("Sort", { "*" });
 				if (method) return method->Invoke<void>(this, comparison);
-				return;
 			}
 		};
 
@@ -1461,38 +1472,42 @@ public:
 			void* m_CachedPtr;
 
 			auto GetName() -> std::string {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("get_name");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto ToString() -> std::string {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("ToString");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			static auto ToString(UnityObject* obj) -> std::string {
+				if (!obj) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("ToString", {"*"});
 				if (method) return method->Invoke<String*>(obj)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			static auto Instantiate(UnityObject* original) -> UnityObject* {
+				if (!original) return nullptr;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("Instantiate", {"*"});
 				if (method) return method->Invoke<UnityObject*>(original);
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			static auto Destroy(UnityObject* original) -> void {
+				if (!original) return;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("Destroy", {"*"});
 				if (method) return method->Invoke<void>(original);
-				throw std::logic_error("nullptr");
 			}
 		};
 
@@ -1510,19 +1525,20 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_gameObject");
 				if (method) return method->Invoke<GameObject*>(this);
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			auto GetTag() -> std::string {
-				if (!this) return "";
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_tag");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			template <typename T>
 			auto GetComponentsInChildren() -> std::vector<T> {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren");
 				if (method) return method->Invoke<Array<T>*>(this)->ToVector();
@@ -1532,13 +1548,9 @@ public:
 			template <typename T>
 			auto GetComponentsInChildren(Class* pClass) -> std::vector<T> {
 				static Method* method;
-				static void*   obj;
-				if (!this) return std::vector<T>();
-				if (!method || !obj) {
-					method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren", {"System.Type"});
-					obj    = pClass->GetType().GetCSType();
-				}
-				if (method) return method->Invoke<Array<T>*>(this, obj)->ToVector();
+				if (!this) return {};
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren", {"System.Type"});
+				if (method) return method->Invoke<Array<T>*>(this, pClass->GetType())->ToVector();
 				return {};
 			}
 
@@ -1557,7 +1569,7 @@ public:
 				if (!this) return std::vector<T>();
 				if (!method || !obj) {
 					method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponents", {"System.Type"});
-					obj    = pClass->GetType().GetCSType();
+					obj    = pClass->GetType();
 				}
 				if (method) return method->Invoke<Array<T>*>(this, obj)->ToVector();
 				return {};
@@ -1578,7 +1590,7 @@ public:
 				if (!this) return std::vector<T>();
 				if (!method || !obj) {
 					method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInParent", {"System.Type"});
-					obj    = pClass->GetType().GetCSType();
+					obj    = pClass->GetType();
 				}
 				if (method) return method->Invoke<Array<T>*>(this, obj)->ToVector();
 				return {};
@@ -1588,7 +1600,7 @@ public:
 			auto GetComponentInChildren(Class* pClass) -> T {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentInChildren", {"System.Type"});
-				if (method) return method->Invoke<T>(this, pClass->GetType().GetCSType());
+				if (method) return method->Invoke<T>(this, pClass->GetType());
 				return T();
 			}
 
@@ -1596,7 +1608,7 @@ public:
 			auto GetComponentInParent(Class* pClass) -> T {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentInParent", {"System.Type"});
-				if (method) return method->Invoke<T>(this, pClass->GetType().GetCSType());
+				if (method) return method->Invoke<T>(this, pClass->GetType());
 				return T();
 			}
 		};
@@ -1644,7 +1656,7 @@ public:
 					return array->ToVector();
 				}
 
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto GetDepth() -> float {
@@ -1894,30 +1906,27 @@ public:
 
 		struct GameObject : UnityObject {
 			static auto Create(GameObject* obj, const std::string& name) -> void {
+				if (!obj) return;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("Internal_CreateGameObject");
 				if (method) method->Invoke<void, GameObject*, String*>(obj, String::New(name));
-				throw std::logic_error("nullptr");
 			}
 
 			static auto FindGameObjectsWithTag(const std::string& name) -> std::vector<GameObject*> {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("FindGameObjectsWithTag");
 				if (method) {
-					std::vector<GameObject*> rs{};
-					const auto               array = method->Invoke<Array<GameObject*>*>(String::New(name));
-					rs.reserve(array->max_length);
-					for (auto i = 0; i < array->max_length; i++) rs.push_back(array->At(i));
-					return rs;
+					const auto array = method->Invoke<Array<GameObject*>*>(String::New(name));
+					return array->ToVector();
 				}
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			static auto Find(const std::string& name) -> GameObject* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("Find");
 				if (method) return method->Invoke<GameObject*>(String::New(name));
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			auto GetActive() -> bool {
@@ -1967,51 +1976,57 @@ public:
 				return nullptr;
 			}
 
-			auto GetTag() -> String* {
+			auto GetTag() -> std::string {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_tag");
-				if (method) return method->Invoke<String*>(this);
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<String*>(this)->ToString();
+				return {};
 			}
 
 			template <typename T>
 			auto GetComponent() -> T {
+				if (!this) return T();
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent");
 				if (method) return method->Invoke<T>(this);
-				throw std::logic_error("nullptr");
+				return T();
 			}
 
 			template <typename T>
-			auto GetComponent(const Class* type) -> T {
+			auto GetComponent(Class* type) -> T {
+				if (!this) return T();
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent", {"System.Type"});
-				if (method) return method->Invoke<T>(this, type->GetType().GetCSType());
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<T>(this, type->GetType());
+				return T();
 			}
 
 			template <typename T>
-			auto GetComponentInChildren(const Class* type) -> T {
+			auto GetComponentInChildren(Class* type) -> T {
+				if (!this) return T();
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentInChildren", {"System.Type"});
-				if (method) return method->Invoke<T>(this, type->GetType().GetCSType());
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<T>(this, type->GetType());
+				return T();
 			}
 
 			template <typename T>
-			auto GetComponentInParent(const Class* type) -> T {
+			auto GetComponentInParent(Class* type) -> T {
+				if (!this) return T();
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentInParent", {"System.Type"});
-				if (method) return method->Invoke<T>(this, type->GetType().GetCSType());
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<T>(this, type->GetType());
+				return T();
 			}
 
 			template <typename T>
 			auto GetComponents(Class* type, bool useSearchTypeAsArrayReturnType = false, bool recursive = false, bool includeInactive = true, bool reverse = false, List<T>* resultList = nullptr) -> std::vector<T> {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentsInternal");
-				if (method) return method->Invoke<Array<T>*>(this, type->GetType().GetCSType(), useSearchTypeAsArrayReturnType, recursive, includeInactive, reverse, resultList)->ToVector();
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<Array<T>*>(this, type->GetType(), useSearchTypeAsArrayReturnType, recursive, includeInactive, reverse, resultList)->ToVector();
+				return {};
 			}
 
 			template <typename T>
@@ -2274,8 +2289,8 @@ public:
 		template <typename Return, typename... Args>
 		static auto Invoke(const void* address, Args... args) -> Return {
 #if WINDOWS_MODE
-			bool badPtr;
 			try {
+				bool badPtr;
 				if (!badPtr) badPtr = !IsBadCodePtr(FARPROC(address));
 				if (address != nullptr && badPtr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
 			} catch (...) {}
