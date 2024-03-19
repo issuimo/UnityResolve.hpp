@@ -2274,7 +2274,7 @@ public:
 		template <typename Return, typename... Args>
 		static auto Invoke(const void* address, Args... args) -> Return {
 #if WINDOWS_MODE
-			static bool badPtr;
+			bool badPtr;
 			try {
 				if (!badPtr) badPtr = !IsBadCodePtr(FARPROC(address));
 				if (address != nullptr && badPtr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
