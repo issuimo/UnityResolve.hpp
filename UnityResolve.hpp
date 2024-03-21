@@ -207,7 +207,9 @@ public:
 				if (function && badPtr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
 			} catch (...) {}
 #else
-			if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
+			try {
+				if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
+			} catch (...) {}
 #endif
 			return Return();
 		}
@@ -243,7 +245,7 @@ public:
 		auto Cast() -> MethodPointer<Return, Args...> {
 			Compile();
 			if (function) return reinterpret_cast<MethodPointer<Return, Args...>>(function);
-			throw std::logic_error("nullptr");
+			return nullptr;
 		}
 	};
 
@@ -2044,14 +2046,14 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("LayerMask")->Get<Method>("NameToLayer");
 				if (method) return method->Invoke<int>(String::New(layerName));
-				throw std::logic_error("nullptr");
+				return 0;
 			}
 
 			static auto LayerToName(const int layer) -> std::string {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("LayerMask")->Get<Method>("LayerToName");
 				if (method) return method->Invoke<String*>(layer)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
@@ -2093,6 +2095,7 @@ public:
 
 		struct Collider : Component {
 			auto GetBounds() -> Bounds {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Collider")->Get<Method>("get_bounds_Injected");
 				if (method) {
@@ -2100,12 +2103,13 @@ public:
 					method->Invoke<void>(this, &bounds);
 					return bounds;
 				}
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
 		struct Mesh : UnityObject {
 			auto GetBounds() -> Bounds {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Mesh")->Get<Method>("get_bounds_Injected");
 				if (method) {
@@ -2113,7 +2117,7 @@ public:
 					method->Invoke<void>(this, &bounds);
 					return bounds;
 				}
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
@@ -2165,6 +2169,7 @@ public:
 
 		struct Renderer : Component {
 			auto GetBounds() -> Bounds {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Renderer")->Get<Method>("get_bounds_Injected");
 				if (method) {
@@ -2172,23 +2177,24 @@ public:
 					method->Invoke<void>(this, &bounds);
 					return bounds;
 				}
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
 		struct Behaviour : Component {
 			auto GetEnabled() -> bool {
+				if (!this) return false;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Behaviour")->Get<Method>("get_enabled");
 				if (method) return method->Invoke<bool>(this);
-				throw std::logic_error("nullptr");
+				return false;
 			}
 
-			auto SetEnabled(const bool value) -> bool {
+			auto SetEnabled(const bool value) -> void {
+				if (!this) return;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Behaviour")->Get<Method>("set_enabled");
-				if (method) return method->Invoke<bool>(this, value);
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<void>(this, value);
 			}
 		};
 
@@ -2199,21 +2205,20 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Linecast", {"*", "*"});
 				if (method) return method->Invoke<bool>(start, end);
-				throw std::logic_error("nullptr");
+				return false;
 			}
 
 			static auto Raycast(const Vector3& origin, const Vector3& direction, const float maxDistance) -> bool {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Raycast", {"*", "*", "*"});
 				if (method) return method->Invoke<bool>(origin, direction, maxDistance);
-				throw std::logic_error("nullptr");
+				return false;
 			}
 
 			static auto IgnoreCollision(Collider* collider1, Collider* collider2) -> void {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("IgnoreCollision1", {"*", "*"});
 				if (method) return method->Invoke<void>(collider1, collider2);
-				throw std::logic_error("nullptr");
 			}
 		};
 
