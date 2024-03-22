@@ -63,6 +63,7 @@ public:
 		std::vector<Class*> classes;
 
 		[[nodiscard]] auto Get(const std::string& strClass, const std::string& strNamespace = "*", const std::string& strParent = "*") const -> Class* {
+			if (!this) return nullptr;
 			for (const auto pClass : classes) if (strClass == pClass->name && (strNamespace == "*" || pClass->namespaze == strNamespace) && (strParent == "*" || pClass->parent == strParent)) return pClass;
 			return nullptr;
 		}
@@ -91,6 +92,7 @@ public:
 
 		template <typename RType>
 		auto Get(const std::string& name, const std::vector<std::string>& args = {}) -> RType* {
+			if (!this) return nullptr;
 			if constexpr (std::is_same_v<RType, Field>) for (auto pField : fields) if (pField->name == name) return static_cast<RType*>(pField);
 			if constexpr (std::is_same_v<RType, std::int32_t>) for (const auto pField : fields) if (pField->name == name) return reinterpret_cast<RType*>(pField->offset);
 			if constexpr (std::is_same_v<RType, Method>) {
@@ -200,6 +202,7 @@ public:
 	public:
 		template <typename Return, typename... Args>
 		auto Invoke(Args... args) -> Return {
+			if (!this) return Return();
 			Compile();
 #if WINDOWS_MODE
 			try {
@@ -214,10 +217,14 @@ public:
 			return Return();
 		}
 
-		auto Compile() -> void { if (address && !function && mode_ == Mode::Mono) function = UnityResolve::Invoke<void*>("mono_compile_method", address); }
+		auto Compile() -> void {
+			if (!this) return;
+			if (address && !function && mode_ == Mode::Mono) function = UnityResolve::Invoke<void*>("mono_compile_method", address);
+		}
 
 		template <typename Return, typename Obj, typename... Args>
 		auto RuntimeInvoke(Obj* obj, Args... args) -> Return {
+			if (!this) return Return();
 			void* exc{};
 			void* argArray[sizeof...(Args) + 1];
 			if (sizeof...(Args) > 0) {
@@ -236,6 +243,7 @@ public:
 				UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc);
 				return;
 			} else return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
+			return Return();
 		}
 
 		template <typename Return, typename... Args>
@@ -243,6 +251,7 @@ public:
 
 		template <typename Return, typename... Args>
 		auto Cast() -> MethodPointer<Return, Args...> {
+			if (!this) return nullptr;
 			Compile();
 			if (function) return reinterpret_cast<MethodPointer<Return, Args...>>(function);
 			return nullptr;
@@ -352,8 +361,8 @@ public:
 					}
 
 					std::string name = field->name;
-					name.replace(name.begin(), name.end(), '<', '_');
-					name.replace(name.begin(), name.end(), '>', '_');
+					std::ranges::replace(name, '<', '_');
+					std::ranges::replace(name, '>', '_');
 
 					if (field->type->name == "System.Int64") {
 						io2 << std::format("\t\tstd::int64_t {};\n", name);
@@ -508,16 +517,20 @@ public:
 
 		// 检查函数是否已经获取地址, 没有则自动获取
 #if WINDOWS_MODE
-		if (!address_.contains(funcName) || address_[funcName] == nullptr) {
-			address_[funcName] = static_cast<void*>(GetProcAddress(static_cast<HMODULE>(hmodule_), funcName.c_str()));
-		}
+		if (!address_.contains(funcName) || !address_[funcName]) address_[funcName] = static_cast<void*>(GetProcAddress(static_cast<HMODULE>(hmodule_), funcName.c_str()));
 #elif  ANDROID_MODE || LINUX_MODE
-		if (address_.find(funcName) == address_.end() || address_[funcName] == nullptr) {
+		if (address_.find(funcName) == address_.end() || !address_[funcName]) {
 			address_[funcName] = dlsym(hmodule_, funcName.c_str());
 		}
 #endif
 
-		if (address_[funcName] != nullptr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(address_[funcName])(args...);
+		if (address_[funcName] != nullptr) {
+			try {
+				return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(address_[funcName])(args...);
+			} catch (...) {
+				Return();
+			}
+		}
 		Return();
 	}
 
