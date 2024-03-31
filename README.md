@@ -1,3 +1,45 @@
+> [!WARNING]\
+> 该库正在重构中，届时将不在依赖一堆il2cpp/Mono导出函数, 转向直接依赖C# \
+>  如获取Assembly中的class需要调用
+> ``` txt
+> il2cpp_domain_get_assemblies
+> il2cpp_assembly_get_image
+> il2cpp_image_get_class_count
+> il2cpp_image_get_class
+> ```
+> 其处理过程非常繁琐 \
+> 而现在只需要获取几个C#中几个基础类型 Assembly, Type, MethodInfo, FieldInfo \
+> 按以下C#代码实现
+> ``` C#
+> foreach (Type type in Assembly.GetExecutingAssembly().GetTypes()) {
+>        Console.WriteLine(type.ToString());
+>        foreach (MethodInfo methodInfo in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
+>            Console.WriteLine("--Method: " + methodInfo.ToString());
+>        }
+>        foreach (FieldInfo fieldInfo in type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
+>            Console.WriteLine("--Field: " + fieldInfo.ToString());
+>        }
+>  }
+> ```
+> 输出以下内容
+> ``` txt
+> Test.Program
+> --Method: Void Main(System.String[])
+> --Method: System.String get_Name()
+> --Method: Void set_Name(System.String)
+> --Method: Int32 Sub(Int32, Int32)
+> --Method: Void GetType[T,T2]()
+> --Method: System.Type GetType()
+> --Method: System.Object MemberwiseClone()
+> --Method: Void Finalize()
+> --Method: System.String ToString()
+> --Method: Boolean Equals(System.Object)
+> --Method: Int32 GetHashCode()
+> --Field: System.String name
+> --Field: System.String arg
+> --Field: System.String name2
+> ```
+
 > [!NOTE]\
 > 有新的功能建议或者Bug可以提交Issues (当然你也可以尝试自己修改代码后提交到该仓库\
 > New feature suggestions or bugs can be commit as issues. Of course, you can also try modifying the code yourself and then commit it to the repository.
