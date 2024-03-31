@@ -39,6 +39,7 @@
 > --Field: System.String arg
 > --Field: System.String name2
 > ```
+> 使使用体验更加接近于C#
 
 > [!NOTE]\
 > 有新的功能建议或者Bug可以提交Issues (当然你也可以尝试自己修改代码后提交到该仓库\
