@@ -16,15 +16,17 @@
 #if WINDOWS_MODE || LINUX_MODE
 #include <format>
 #endif
+#include <codecvt>
 #include <fstream>
 #include <iostream>
 #include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <ranges>
 #if WINDOWS_MODE
 #include <windows.h>
-#undef GetObject 
+#undef GetObject
 #endif
 
 #if WINDOWS_MODE
@@ -34,12 +36,10 @@
 #define UNITY_CALLING_CONVENTION __cdecl
 #endif
 #elif ANDROID_MODE || LINUX_MODE
-#include <codecvt>
 #include <locale>
 #include <dlfcn.h>
 #define UNITY_CALLING_CONVENTION
 #endif
-#include <codecvt>
 
 class UnityResolve final {
 public:
@@ -48,6 +48,7 @@ public:
 	struct Class;
 	struct Field;
 	struct Method;
+	class UnityType;
 
 	enum class Mode : char {
 		Il2Cpp,
@@ -61,6 +62,7 @@ public:
 		std::vector<Class*> classes;
 
 		[[nodiscard]] auto Get(const std::string& strClass, const std::string& strNamespace = "*", const std::string& strParent = "*") const -> Class* {
+			if (!this) return nullptr;
 			for (const auto pClass : classes) if (strClass == pClass->name && (strNamespace == "*" || pClass->namespaze == strNamespace) && (strParent == "*" || pClass->parent == strParent)) return pClass;
 			return nullptr;
 		}
@@ -71,14 +73,15 @@ public:
 		std::string name;
 		int         size;
 
-		[[nodiscard]] auto GetObject() const -> void* {
+		// UnityType::CsType*
+		[[nodiscard]] auto GetCSType() const -> void* {
 			if (mode_ == Mode::Il2Cpp) return Invoke<void*>("il2cpp_type_get_object", address);
 			return Invoke<void*>("mono_type_get_object", pDomain, address);
 		}
 	};
 
 	struct Class final {
-		void* classinfo;
+		void* address;
 		std::string          name;
 		std::string          parent;
 		std::string          namespaze;
@@ -88,32 +91,22 @@ public:
 
 		template <typename RType>
 		auto Get(const std::string& name, const std::vector<std::string>& args = {}) -> RType* {
+			if (!this) return nullptr;
 			if constexpr (std::is_same_v<RType, Field>) for (auto pField : fields) if (pField->name == name) return static_cast<RType*>(pField);
 			if constexpr (std::is_same_v<RType, std::int32_t>) for (const auto pField : fields) if (pField->name == name) return reinterpret_cast<RType*>(pField->offset);
 			if constexpr (std::is_same_v<RType, Method>) {
 				for (auto pMethod : methods) {
 					if (pMethod->name == name) {
-						if (pMethod->args.size() == 0 && args.size() == 0) {
-							return static_cast<RType*>(pMethod);
-						}
+						if (pMethod->args.empty() && args.empty()) return static_cast<RType*>(pMethod);
 						if (pMethod->args.size() == args.size()) {
 							size_t index{ 0 };
-							for (size_t i { 0 }; const auto & typeName : args)
-							if (typeName == "*" || typeName.empty() ? true : pMethod->args[i++]->pType->name == typeName) {
-								index++;
-							}
-							if (index == pMethod->args.size()) {
-								return static_cast<RType*>(pMethod);
-							}
+							for (size_t i{ 0 }; const auto & typeName : args) if (typeName == "*" || typeName.empty() ? true : pMethod->args[i++]->pType->name == typeName) index++;
+							if (index == pMethod->args.size()) return static_cast<RType*>(pMethod);
 						}
 					}
 				}
 
-				for (auto pMethod : methods) {
-					if (pMethod->name == name) {
-						return static_cast<RType*>(pMethod);
-					}
-				}
+				for (auto pMethod : methods) if (pMethod->name == name) return static_cast<RType*>(pMethod);
 			}
 			return nullptr;
 		}
@@ -124,13 +117,17 @@ public:
 		template <typename RType>
 		auto SetValue(void* obj, const std::string& name, RType value) -> void { return *reinterpret_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset) = value; }
 
-		[[nodiscard]] auto GetType() const -> Type {
+		// UnityType::CsType*
+		[[nodiscard]] auto GetType() -> void* {
+			if (objType) return objType;
 			if (mode_ == Mode::Il2Cpp) {
-				const auto pUType = Invoke<void*, void*>("il2cpp_class_get_type", classinfo);
-				return { pUType, name, -1 };
+				const auto pUType = Invoke<void*, void*>("il2cpp_class_get_type", address);
+				objType = Invoke<void*>("il2cpp_type_get_object", pUType);
+				return objType;
 			}
-			const auto pUType = Invoke<void*, void*>("mono_class_get_type", classinfo);
-			return { pUType, name, -1 };
+			const auto pUType = Invoke<void*, void*>("mono_class_get_type", address);
+			objType = Invoke<void*>("mono_type_get_object", pDomain, pUType);
+			return objType;
 		}
 
 		/**
@@ -144,7 +141,7 @@ public:
 			static Method* pMethod;
 
 			if (!pMethod) pMethod = UnityResolve::Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>(mode_ == Mode::Il2Cpp ? "FindObjectsOfType" : "FindObjectsOfTypeAll", { "System.Type" });
-			if (!objType) { objType = this->GetType().GetObject(); }
+			if (!objType) objType = this->GetType();
 
 			if (pMethod && objType) {
 				auto array = pMethod->Invoke<UnityType::Array<T>*>(objType);
@@ -156,13 +153,13 @@ public:
 
 		template <typename T>
 		auto New() -> T* {
-			if (mode_ == Mode::Il2Cpp) return Invoke<T*, void*>("il2cpp_object_new", classinfo);
-			return Invoke<T*, void*, void*>("mono_object_new", pDomain, classinfo);
+			if (mode_ == Mode::Il2Cpp) return Invoke<T*, void*>("il2cpp_object_new", address);
+			return Invoke<T*, void*, void*>("mono_object_new", pDomain, address);
 		}
 	};
 
 	struct Field final {
-		void* fieldinfo;
+		void* address;
 		std::string  name;
 		Type* type;
 		Class* klass;
@@ -173,13 +170,13 @@ public:
 		template <typename T>
 		auto SetValue(T* value) const -> void {
 			if (!static_field) return;
-			if (mode_ == Mode::Il2Cpp) return Invoke<void, void*, T*>("il2cpp_field_static_set_value", fieldinfo, value);
+			if (mode_ == Mode::Il2Cpp) return Invoke<void, void*, T*>("il2cpp_field_static_set_value", address, value);
 		}
 
 		template <typename T>
 		auto GetValue(T* value) const -> void {
 			if (!static_field) return;
-			if (mode_ == Mode::Il2Cpp) return Invoke<void, void*, T*>("il2cpp_field_static_get_value", fieldinfo, value);
+			if (mode_ == Mode::Il2Cpp) return Invoke<void, void*, T*>("il2cpp_field_static_get_value", address, value);
 		}
 	};
 
@@ -201,27 +198,35 @@ public:
 
 	private:
 		bool badPtr{ false };
-	public:
 
+	public:
 		template <typename Return, typename... Args>
 		auto Invoke(Args... args) -> Return {
+			if (!this) return Return();
 			Compile();
 #if WINDOWS_MODE
 			try {
-				if (!badPtr) badPtr = !IsBadCodePtr(static_cast<FARPROC>(function));
+				if (!badPtr) badPtr = !IsBadCodePtr(reinterpret_cast<FARPROC>(function));
 				if (function && badPtr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
 			}
 			catch (...) {}
 #else
-			if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
+			try {
+				if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
+			}
+			catch (...) {}
 #endif
 			return Return();
 		}
 
-		auto Compile() -> void { if (address && !function && mode_ == Mode::Mono) function = UnityResolve::Invoke<void*>("mono_compile_method", address); }
+		auto Compile() -> void {
+			if (!this) return;
+			if (address && !function && mode_ == Mode::Mono) function = UnityResolve::Invoke<void*>("mono_compile_method", address);
+		}
 
 		template <typename Return, typename Obj, typename... Args>
 		auto RuntimeInvoke(Obj* obj, Args... args) -> Return {
+			if (!this) return Return();
 			void* exc{};
 			void* argArray[sizeof...(Args) + 1];
 			if (sizeof...(Args) > 0) {
@@ -233,13 +238,16 @@ public:
 				if constexpr (std::is_void_v<Return>) {
 					UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc);
 					return;
-				} else return *static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc));
+				}
+				else return *static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc));
 			}
 
 			if constexpr (std::is_void_v<Return>) {
 				UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc);
 				return;
-			} else return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
+			}
+			else return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
+			return Return();
 		}
 
 		template <typename Return, typename... Args>
@@ -247,9 +255,10 @@ public:
 
 		template <typename Return, typename... Args>
 		auto Cast() -> MethodPointer<Return, Args...> {
+			if (!this) return nullptr;
 			Compile();
-			if (function) return static_cast<MethodPointer<Return, Args...>>(function);
-			throw std::logic_error("nullptr");
+			if (function) return reinterpret_cast<MethodPointer<Return, Args...>>(function);
+			return nullptr;
 		}
 	};
 
@@ -342,200 +351,155 @@ public:
 				io2 << "{\n\n";
 
 				for (size_t i = 0; i < pClass->fields.size(); i++) {
-					if (pClass->fields[i]->static_field) {
-						continue;
-					}
+					if (pClass->fields[i]->static_field) continue;
 
 					auto field = pClass->fields[i];
 
-					next:
-					if ((i + 1) >= pClass->fields.size()) {
-						io2 << std::format("\t\tchar {}[0x{:06X}];\n", field->name, 0x4);
-						continue;
-					}
+				next: if ((i + 1) >= pClass->fields.size()) {
+					io2 << std::format("\t\tchar {}[0x{:06X}];\n", field->name, 0x4);
+					continue;
+				}
 
-					if (pClass->fields[i + 1]->static_field) {
-						i++;
-						goto next;
-					}
+				if (pClass->fields[i + 1]->static_field) {
+					i++;
+					goto next;
+				}
 
-					std::string name = field->name;
-					name.replace(name.begin(), name.end(), '<', '_');
-					name.replace(name.begin(), name.end(), '>', '_');
+				std::string name = field->name;
+				std::ranges::replace(name, '<', '_');
+				std::ranges::replace(name, '>', '_');
 
-					if (field->type->name == "System.Int64") {
-						io2 << std::format("\t\tstd::int64_t {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 8) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 8);
-						}
-						continue;
-					}
+				if (field->type->name == "System.Int64") {
+					io2 << std::format("\t\tstd::int64_t {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 8) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 8);
+					continue;
+				}
 
-					if (field->type->name == "System.UInt64") {
-						io2 << std::format("\t\tstd::uint64_t {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 8) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 8);
-						}
-						continue;
-					}
+				if (field->type->name == "System.UInt64") {
+					io2 << std::format("\t\tstd::uint64_t {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 8) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 8);
+					continue;
+				}
 
-					if (field->type->name == "System.Int32") {
-						io2 << std::format("\t\tint {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 4) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 4);
-						}
-						continue;
-					}
+				if (field->type->name == "System.Int32") {
+					io2 << std::format("\t\tint {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 4) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 4);
+					continue;
+				}
 
-					if (field->type->name == "System.UInt32") {
-						io2 << std::format("\t\tstd::uint32_t {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 4) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 4);
-						}
-						continue;
-					}
+				if (field->type->name == "System.UInt32") {
+					io2 << std::format("\t\tstd::uint32_t {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 4) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 4);
+					continue;
+				}
 
-					if (field->type->name == "System.Boolean") {
-						io2 << std::format("\t\tbool {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 1) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 1);
-						}
-						continue;
-					}
+				if (field->type->name == "System.Boolean") {
+					io2 << std::format("\t\tbool {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 1) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 1);
+					continue;
+				}
 
-					if (field->type->name == "System.String") {
-						io2 << std::format("\t\tUnityResolve::UnityType::String* {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
-						}
-						continue;
-					}
+				if (field->type->name == "System.String") {
+					io2 << std::format("\t\tUnityResolve::UnityType::String* {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
+					continue;
+				}
 
-					if (field->type->name == "System.Single") {
-						io2 << std::format("\t\tfloat {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 4) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 4);
-						}
-						continue;
-					}
+				if (field->type->name == "System.Single") {
+					io2 << std::format("\t\tfloat {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 4) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 4);
+					continue;
+				}
 
-					if (field->type->name == "System.Double") {
-						io2 << std::format("\t\tdouble {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 8) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 8);
-						}
-						continue;
-					}
+				if (field->type->name == "System.Double") {
+					io2 << std::format("\t\tdouble {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > 8) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - 8);
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.Vector3") {
-						io2 << std::format("\t\tUnityResolve::UnityType::Vector3 {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Vector3)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Vector3));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.Vector3") {
+					io2 << std::format("\t\tUnityResolve::UnityType::Vector3 {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Vector3)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Vector3));
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.Vector2") {
-						io2 << std::format("\t\tUnityResolve::UnityType::Vector2 {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Vector2)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Vector2));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.Vector2") {
+					io2 << std::format("\t\tUnityResolve::UnityType::Vector2 {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Vector2)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Vector2));
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.Vector4") {
-						io2 << std::format("\t\tUnityResolve::UnityType::Vector4 {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Vector4)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Vector4));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.Vector4") {
+					io2 << std::format("\t\tUnityResolve::UnityType::Vector4 {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Vector4)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Vector4));
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.GameObject") {
-						io2 << std::format("\t\tUnityResolve::UnityType::GameObject* {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.GameObject") {
+					io2 << std::format("\t\tUnityResolve::UnityType::GameObject* {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.Transform") {
-						io2 << std::format("\t\tUnityResolve::UnityType::Transform* {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.Transform") {
+					io2 << std::format("\t\tUnityResolve::UnityType::Transform* {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.Animator") {
-						io2 << std::format("\t\tUnityResolve::UnityType::Animator* {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.Animator") {
+					io2 << std::format("\t\tUnityResolve::UnityType::Animator* {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.Physics") {
-						io2 << std::format("\t\tUnityResolve::UnityType::Physics* {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.Physics") {
+					io2 << std::format("\t\tUnityResolve::UnityType::Physics* {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.Component") {
-						io2 << std::format("\t\tUnityResolve::UnityType::Component* {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.Component") {
+					io2 << std::format("\t\tUnityResolve::UnityType::Component* {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.Rect") {
-						io2 << std::format("\t\tUnityResolve::UnityType::Rect {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Rect)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Rect));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.Rect") {
+					io2 << std::format("\t\tUnityResolve::UnityType::Rect {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Rect)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Rect));
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.Quaternion") {
-						io2 << std::format("\t\tUnityResolve::UnityType::Quaternion {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Quaternion)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Quaternion));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.Quaternion") {
+					io2 << std::format("\t\tUnityResolve::UnityType::Quaternion {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Quaternion)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Quaternion));
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.Color") {
-						io2 << std::format("\t\tUnityResolve::UnityType::Color {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Color)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Color));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.Color") {
+					io2 << std::format("\t\tUnityResolve::UnityType::Color {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Color)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Color));
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.Matrix4x4") {
-						io2 << std::format("\t\tUnityResolve::UnityType::Matrix4x4 {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Matrix4x4)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Matrix4x4));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.Matrix4x4") {
+					io2 << std::format("\t\tUnityResolve::UnityType::Matrix4x4 {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(UnityType::Matrix4x4)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(UnityType::Matrix4x4));
+					continue;
+				}
 
-					if (field->type->name == "UnityEngine.Rigidbody") {
-						io2 << std::format("\t\tUnityResolve::UnityType::Rigidbody* {};\n", name);
-						if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) {
-							io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
-						}
-						continue;
-					}
+				if (field->type->name == "UnityEngine.Rigidbody") {
+					io2 << std::format("\t\tUnityResolve::UnityType::Rigidbody* {};\n", name);
+					if (!pClass->fields[i + 1]->static_field && (pClass->fields[i + 1]->offset - field->offset) > sizeof(void*)) io2 << std::format("\t\tchar {}_[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset - sizeof(void*));
+					continue;
+				}
 
-					io2 << std::format("\t\tchar {}[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset);
+				io2 << std::format("\t\tchar {}[0x{:06X}];\n", name, pClass->fields[i + 1]->offset - field->offset);
 				}
 
 				io2 << "\n";
-				io2 << "\t}\n\n";
+				io2 << "\t};\n\n";
 			}
 		}
 		io2 << '\n';
@@ -557,17 +521,23 @@ public:
 		std::lock_guard   lock(mutex);
 
 		// 检查函数是否已经获取地址, 没有则自动获取
-		// if (!address_.contains(funcName) || address_[funcName] == nullptr) {
-		if (address_.find(funcName) == address_.end() || address_[funcName] == nullptr) {
 #if WINDOWS_MODE
-			address_[funcName] = static_cast<void*>(GetProcAddress(static_cast<HMODULE>(hmodule_), funcName.c_str()));
+		if (!address_.contains(funcName) || !address_[funcName]) address_[funcName] = static_cast<void*>(GetProcAddress(static_cast<HMODULE>(hmodule_), funcName.c_str()));
 #elif  ANDROID_MODE || LINUX_MODE
+		if (address_.find(funcName) == address_.end() || !address_[funcName]) {
 			address_[funcName] = dlsym(hmodule_, funcName.c_str());
-#endif
 		}
+#endif
 
-		if (address_[funcName] != nullptr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(address_[funcName])(args...);
-		throw std::logic_error("Not find function");
+		if (address_[funcName] != nullptr) {
+			try {
+				return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(address_[funcName])(args...);
+			}
+			catch (...) {
+				Return();
+			}
+		}
+		Return();
 	}
 
 	inline static std::vector<Assembly*> assembly;
@@ -620,7 +590,7 @@ private:
 				const auto pClass = Invoke<void*>("il2cpp_image_get_class", image, i);
 				if (pClass == nullptr) continue;
 				const auto pAClass = new Class();
-				pAClass->classinfo = pClass;
+				pAClass->address = pClass;
 				pAClass->name = Invoke<const char*>("il2cpp_class_get_name", pClass);
 				if (const auto pPClass = Invoke<void*>("il2cpp_class_get_parent", pClass)) pAClass->parent = Invoke<const char*>("il2cpp_class_get_name", pPClass);
 				pAClass->namespaze = Invoke<const char*>("il2cpp_class_get_namespace", pClass);
@@ -647,7 +617,7 @@ private:
 				if (pClass == nullptr) continue;
 
 				const auto pAClass = new Class();
-				pAClass->classinfo = pClass;
+				pAClass->address = pClass;
 				pAClass->name = Invoke<const char*>("mono_class_get_name", pClass);
 				if (const auto pPClass = Invoke<void*>("mono_class_get_parent", pClass)) pAClass->parent = Invoke<const char*>("mono_class_get_name", pPClass);
 				pAClass->namespaze = Invoke<const char*>("mono_class_get_namespace", pClass);
@@ -676,7 +646,7 @@ private:
 			void* field;
 			do {
 				if ((field = Invoke<void*>("il2cpp_class_get_fields", pKlass, &iter))) {
-					const auto pField = new Field{ .fieldinfo = field, .name = Invoke<const char*>("il2cpp_field_get_name", field), .type = new Type{.address = Invoke<void*>("il2cpp_field_get_type", field)}, .klass = klass, .offset = Invoke<int>("il2cpp_field_get_offset", field), .static_field = false, .vTable = nullptr };
+					const auto pField = new Field{ .address = field, .name = Invoke<const char*>("il2cpp_field_get_name", field), .type = new Type{.address = Invoke<void*>("il2cpp_field_get_type", field)}, .klass = klass, .offset = Invoke<int>("il2cpp_field_get_offset", field), .static_field = false, .vTable = nullptr };
 					int        tSize{};
 					pField->static_field = pField->offset <= 0;
 					pField->type->name = Invoke<const char*>("il2cpp_type_get_name", pField->type->address);
@@ -690,7 +660,7 @@ private:
 			void* field;
 			do {
 				if ((field = Invoke<void*>("mono_class_get_fields", pKlass, &iter))) {
-					const auto pField = new Field{ .fieldinfo = field, .name = Invoke<const char*>("mono_field_get_name", field), .type = new Type{.address = Invoke<void*>("mono_field_get_type", field)}, .klass = klass, .offset = Invoke<int>("mono_field_get_offset", field), .static_field = false, .vTable = nullptr };
+					const auto pField = new Field{ .address = field, .name = Invoke<const char*>("mono_field_get_name", field), .type = new Type{.address = Invoke<void*>("mono_field_get_type", field)}, .klass = klass, .offset = Invoke<int>("mono_field_get_offset", field), .static_field = false, .vTable = nullptr };
 					int        tSize{};
 					pField->static_field = pField->offset <= 0;
 					pField->type->name = Invoke<const char*>("mono_type_get_name", pField->type->address);
@@ -716,7 +686,7 @@ private:
 					pMethod->return_type = new Type{ .address = Invoke<void*>("il2cpp_method_get_return_type", method), };
 					pMethod->flags = Invoke<int>("il2cpp_method_get_flags", method, &fFlags);
 
-					int        tSize{};
+					int tSize{};
 					pMethod->static_function = pMethod->flags & 0x10;
 					pMethod->return_type->name = Invoke<const char*>("il2cpp_type_get_name", pMethod->return_type->address);
 					pMethod->return_type->size = -1;
@@ -740,7 +710,7 @@ private:
 					pMethod->klass = klass;
 					pMethod->return_type = new Type{ .address = Invoke<void*>("mono_signature_get_return_type", method), };
 					pMethod->flags = Invoke<int>("mono_method_get_flags", method, &fFlags);
-					int        tSize{};
+					int tSize{};
 					pMethod->static_function = pMethod->flags & 0x10;
 					pMethod->return_type->name = Invoke<const char*>("mono_type_get_name", pMethod->return_type->address);
 					pMethod->return_type->size = Invoke<int>("mono_type_size", pMethod->return_type->address, &tSize);
@@ -755,7 +725,10 @@ private:
 					do {
 						if ((mType = Invoke<void*>("mono_signature_get_params", signature, &mIter))) {
 							int t_size{};
-							pMethod->args.push_back(new Method::Arg{ names[iname], new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size)} });
+							try { pMethod->args.push_back(new Method::Arg{ names[iname], new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size)} }); }
+							catch (...) {
+								// USE SEH!!!
+							}
 							iname++;
 						}
 					} while (mType);
@@ -767,6 +740,12 @@ private:
 public:
 	class UnityType final {
 	public:
+		using IntPtr = std::uintptr_t;
+		using Int32 = std::int32_t;
+		using Int64 = std::int64_t;
+		using Char = wchar_t;
+		using Int16 = std::int16_t;
+		using Byte = std::uint8_t;
 		struct Vector3;
 		struct Camera;
 		struct Transform;
@@ -1246,75 +1225,91 @@ public:
 			union {
 				void* klass{ nullptr };
 				void* vtable;
-			} Il2CppClass;
+			}         Il2CppClass;
 
 			struct MonitorData* monitor{ nullptr };
 
 			auto GetType() -> CsType* {
+				if (!this) return nullptr;
 				static Method* method;
-				if (!method) method = Get("mscorlib.dll")->Get("Object")->Get<Method>("GetType");
+				if (!method) method = Get("mscorlib.dll")->Get("Object", "System")->Get<Method>("GetType");
 				if (method) return method->Invoke<CsType*>(this);
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			auto ToString() -> std::string {
+				if (!this) return {};
 				static Method* method;
-				if (!method) method = Get("mscorlib.dll")->Get("Object")->Get<Method>("ToString");
+				if (!method) method = Get("mscorlib.dll")->Get("Object", "System")->Get<Method>("ToString");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
 		struct CsType {
+
 			auto FormatTypeName() -> std::string {
+				if (!this) return {};
 				static Method* method;
-				if (!method) method = Get("mscorlib.dll")->Get("Type")->Get<Method>("FormatTypeName");
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("FormatTypeName");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto GetFullName() -> std::string {
+				if (!this) return {};
 				static Method* method;
-				if (!method) method = Get("mscorlib.dll")->Get("Type")->Get<Method>("get_FullName");
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_FullName");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto GetNamespace() -> std::string {
+				if (!this) return {};
 				static Method* method;
-				if (!method) method = Get("mscorlib.dll")->Get("Type")->Get<Method>("get_Namespace");
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_Namespace");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
 		struct String : Object {
-			int32_t m_stringLength{ 0 };
+			int32_t  m_stringLength{ 0 };
 			wchar_t m_firstChar[32]{};
 
 			[[nodiscard]] auto ToString() const -> std::string {
-				if (!this) { return std::string(); }
 #if WINDOWS_MODE
-				using convert_typeX = std::codecvt_utf8<wchar_t>;
-				std::wstring_convert<convert_typeX, wchar_t> converterX;
-				return converterX.to_bytes(m_firstChar);
-#elif LINUX_MODE
-				using convert_typeX = std::codecvt_utf8<wchar_t>;
-				std::wstring_convert<convert_typeX, wchar_t> converterX;
-				return converterX.to_bytes(m_firstChar);
-#elif ANDROID_MODE
-				// 可能存在bug 目前已有报告 "比如对象标签 有的时候会直接跳到游戏控制器里面去"
-				using convert_typeX = std::codecvt_utf8<wchar_t>;
-				std::wstring_convert<convert_typeX, wchar_t> converterX;
-				return converterX.to_bytes(m_firstChar);
+				if (IsBadReadPtr(this, sizeof(String))) return {};
+				if (IsBadReadPtr(m_firstChar, m_stringLength)) return {};
 #endif
+				if (!this) return {};
+				try {
+					using convert_typeX = std::codecvt_utf8<wchar_t>;
+					std::wstring_convert<convert_typeX> converterX;
+					return converterX.to_bytes(m_firstChar);
+				}
+				catch (...) {
+					return {};
+				}
 			}
 
 			auto operator[](const int i) const -> wchar_t { return m_firstChar[i]; }
 
+			auto operator=(const std::string& newString) const -> String* { return New(newString); }
+
+			auto operator==(const std::wstring& newString) const -> bool { return Equals(newString); }
+
 			auto Clear() -> void {
+				if (!this) return;
 				memset(m_firstChar, 0, m_stringLength);
 				m_stringLength = 0;
+			}
+
+			[[nodiscard]] auto Equals(const std::wstring& newString) const -> bool {
+				if (!this) return false;
+				if (newString.size() != m_stringLength) return false;
+				if (std::memcmp(newString.data(), m_firstChar, m_stringLength) != 0) return false;
+				return true;
 			}
 
 			static auto New(const std::string& str) -> String* {
@@ -1330,8 +1325,8 @@ public:
 				std::int32_t   lower_bound;
 			}*bounds{ nullptr };
 
-			std::uintptr_t          max_length{ 0 };
-			__declspec(align(8)) T* vector[32]{};
+			std::uintptr_t           max_length{ 0 };
+			__declspec(align(8)) T** vector {};
 
 			auto GetData() -> uintptr_t { return reinterpret_cast<uintptr_t>(&vector); }
 
@@ -1354,7 +1349,7 @@ public:
 			auto RemoveAt(const unsigned int m_uIndex) -> void {
 				if (m_uIndex >= max_length) return;
 
-				if (max_length > (m_uIndex + 1)) for (auto u = m_uIndex; (static_cast<unsigned int>(max_length) - m_uIndex) > u; ++u) operator[](u) = operator[](u + 1);
+				if (max_length > (m_uIndex + 1)) for (auto u = m_uIndex; (max_length - m_uIndex) > u; ++u) operator[](u) = operator[](u + 1);
 
 				--max_length;
 			}
@@ -1365,7 +1360,7 @@ public:
 				const auto m_uTotal = m_uIndex + m_uCount;
 				if (m_uTotal >= max_length) return;
 
-				if (max_length > (m_uTotal + 1)) for (auto u = m_uIndex; (static_cast<unsigned int>(max_length) - m_uTotal) >= u; ++u) operator[](u) = operator[](u + m_uCount);
+				if (max_length > (m_uTotal + 1)) for (auto u = m_uIndex; (max_length - m_uTotal) >= u; ++u) operator[](u) = operator[](u + m_uCount);
 
 				max_length -= m_uCount;
 			}
@@ -1378,23 +1373,38 @@ public:
 			}
 
 			auto ToVector() -> std::vector<T> {
-				std::vector<T> rs{};
-				rs.reserve(this->max_length);
-				for (auto i = 0; i < this->max_length; i++) rs.push_back(this->At(i));
-				return rs;
+#if WINDOWS_MODE
+				if (IsBadReadPtr(this, sizeof(Array))) return {};
+#endif
+				if (!this) return {};
+				try {
+					std::vector<T> rs{};
+					rs.reserve(this->max_length);
+					for (auto i = 0; i < this->max_length; i++) rs.push_back(this->At(i));
+					return rs;
+				}
+				catch (...) {
+					return {};
+				}
+			}
+
+			auto Resize(int newSize) -> void {
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Array")->Get<Method>("Resize");
+				if (method) return method->Invoke<void>(this, newSize);
 			}
 
 			static auto New(const Class* kalss, const std::uintptr_t size) -> Array* {
-				if (mode_ == Mode::Il2Cpp) return UnityResolve::Invoke<Array*, void*, std::uintptr_t>("il2cpp_array_new", kalss->classinfo, size);
-				return UnityResolve::Invoke<Array*, void*, void*, std::uintptr_t>("mono_array_new", pDomain, kalss->classinfo, size);
+				if (mode_ == Mode::Il2Cpp) return UnityResolve::Invoke<Array*, void*, std::uintptr_t>("il2cpp_array_new", kalss->address, size);
+				return UnityResolve::Invoke<Array*, void*, void*, std::uintptr_t>("mono_array_new", pDomain, kalss->address, size);
 			}
 		};
 
 		template <typename Type>
 		struct List : Object {
 			Array<Type>* pList;
-			int size{};
-			int version{};
+			int          size{};
+			int          version{};
 			void* syncRoot{};
 
 			auto ToArray() -> Array<Type>* { return pList; }
@@ -1407,53 +1417,55 @@ public:
 
 			auto operator[](const unsigned int m_uIndex) -> Type& { return pList->At(m_uIndex); }
 
-			auto Add(Type* pDate) -> float {
+			auto Add(Type pDate) -> void {
+				if (!this) return;
 				static Method* method;
-				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("Add");
+				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("Add");
 				if (method) return method->Invoke<void>(this, pDate);
-				throw std::logic_error("nullptr");
 			}
 
-			auto Remove(Type* pDate) -> float {
+			auto Remove(Type pDate) -> bool {
+				if (!this) return false;
 				static Method* method;
-				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("Remove");
-				if (method) return method->Invoke<void>(this, pDate);
-				throw std::logic_error("nullptr");
+				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("Remove");
+				if (method) return method->Invoke<bool>(this, pDate);
+				return false;
 			}
 
-			auto RemoveAt(int index) -> float {
+			auto RemoveAt(int index) -> void {
+				if (!this) return;
 				static Method* method;
-				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("RemoveAt");
+				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("RemoveAt");
 				if (method) return method->Invoke<void>(this, index);
-				throw std::logic_error("nullptr");
 			}
 
-			auto ForEach(void(*action)(Type* pDate)) -> float {
+			auto ForEach(void(*action)(Type pDate)) -> void {
+				if (!this) return;
 				static Method* method;
-				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("ForEach");
+				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("ForEach");
 				if (method) return method->Invoke<void>(this, action);
-				throw std::logic_error("nullptr");
 			}
 
-			auto GetRange(int index, int count) -> float {
+			auto GetRange(int index, int count) -> List* {
+				if (!this) return {};
 				static Method* method;
-				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("GetRange");
-				if (method) return method->Invoke<void>(this, index, count);
-				throw std::logic_error("nullptr");
+				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("GetRange");
+				if (method) return method->Invoke<List*>(this, index, count);
+				return nullptr;
 			}
 
-			auto Clear() -> float {
+			auto Clear() -> void {
+				if (!this) return;
 				static Method* method;
-				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("Clear");
+				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("Clear");
 				if (method) return method->Invoke<void>(this);
-				throw std::logic_error("nullptr");
 			}
 
-			auto Sort(int(*comparison)(Type* pX, Type* pY)) -> float {
+			auto Sort(int (*comparison)(Type* pX, Type* pY)) -> void {
+				if (!this) return;
 				static Method* method;
-				if (!method) method = Get("mscorlib.dll")->Get("List")->Get<Method>("Sort");
+				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("Sort", { "*" });
 				if (method) return method->Invoke<void>(this, comparison);
-				throw std::logic_error("nullptr");
 			}
 		};
 
@@ -1509,43 +1521,48 @@ public:
 			void* m_CachedPtr;
 
 			auto GetName() -> std::string {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("get_name");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto ToString() -> std::string {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("ToString");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			static auto ToString(UnityObject* obj) -> std::string {
+				if (!obj) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("ToString", { "*" });
 				if (method) return method->Invoke<String*>(obj)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			static auto Instantiate(UnityObject* original) -> UnityObject* {
+				if (!original) return nullptr;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("Instantiate", { "*" });
 				if (method) return method->Invoke<UnityObject*>(original);
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			static auto Destroy(UnityObject* original) -> void {
+				if (!original) return;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("Destroy", { "*" });
 				if (method) return method->Invoke<void>(original);
-				throw std::logic_error("nullptr");
 			}
 		};
 
 		struct Component : UnityObject {
 			auto GetTransform() -> Transform* {
+				if (!this) return nullptr;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_transform");
 				if (method) return method->Invoke<Transform*>(this);
@@ -1553,21 +1570,24 @@ public:
 			}
 
 			auto GetGameObject() -> GameObject* {
+				if (!this) return nullptr;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_gameObject");
 				if (method) return method->Invoke<GameObject*>(this);
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			auto GetTag() -> std::string {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_tag");
 				if (method) return method->Invoke<String*>(this)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			template <typename T>
 			auto GetComponentsInChildren() -> std::vector<T> {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren");
 				if (method) return method->Invoke<Array<T>*>(this)->ToVector();
@@ -1577,13 +1597,9 @@ public:
 			template <typename T>
 			auto GetComponentsInChildren(Class* pClass) -> std::vector<T> {
 				static Method* method;
-				static void* obj;
-				if (!this) { return std::vector<T>(); }
-				if (!method || !obj) { 
-					method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren", { "System.Type" });
-					obj = pClass->GetType().GetObject();
-				}
-				if (method) return method->Invoke<Array<T>*>(this, obj)->ToVector();
+				if (!this) return {};
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren", { "System.Type" });
+				if (method) return method->Invoke<Array<T>*>(this, pClass->GetType())->ToVector();
 				return {};
 			}
 
@@ -1599,10 +1615,10 @@ public:
 			auto GetComponents(Class* pClass) -> std::vector<T> {
 				static Method* method;
 				static void* obj;
-				if (!this) { return std::vector<T>(); }
+				if (!this) return std::vector<T>();
 				if (!method || !obj) {
 					method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponents", { "System.Type" });
-					obj = pClass->GetType().GetObject();
+					obj = pClass->GetType();
 				}
 				if (method) return method->Invoke<Array<T>*>(this, obj)->ToVector();
 				return {};
@@ -1620,10 +1636,10 @@ public:
 			auto GetComponentsInParent(Class* pClass) -> std::vector<T> {
 				static Method* method;
 				static void* obj;
-				if (!this) { return std::vector<T>(); }
+				if (!this) return std::vector<T>();
 				if (!method || !obj) {
 					method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInParent", { "System.Type" });
-					obj = pClass->GetType().GetObject();
+					obj = pClass->GetType();
 				}
 				if (method) return method->Invoke<Array<T>*>(this, obj)->ToVector();
 				return {};
@@ -1632,16 +1648,16 @@ public:
 			template <typename T>
 			auto GetComponentInChildren(Class* pClass) -> T {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentInChildren", { "System.Type" });;
-				if (method) return method->Invoke<T>(this, pClass->GetType().GetObject());
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentInChildren", { "System.Type" });
+				if (method) return method->Invoke<T>(this, pClass->GetType());
 				return T();
 			}
 
 			template <typename T>
 			auto GetComponentInParent(Class* pClass) -> T {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentInParent", { "System.Type" });;
-				if (method) return method->Invoke<T>(this, pClass->GetType().GetObject());
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentInParent", { "System.Type" });
+				if (method) return method->Invoke<T>(this, pClass->GetType());
 				return T();
 			}
 		};
@@ -1657,21 +1673,21 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("get_main");
 				if (method) return method->Invoke<Camera*>();
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			static auto GetCurrent() -> Camera* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("get_current");
 				if (method) return method->Invoke<Camera*>();
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			static auto GetAllCount() -> int {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("get_allCamerasCount");
 				if (method) return method->Invoke<int>();
-				throw std::logic_error("nullptr");
+				return 0;
 			}
 
 			static auto GetAllCamera() -> std::vector<Camera*> {
@@ -1684,40 +1700,53 @@ public:
 				}
 
 				if (method && klass) {
-					const auto array = Array<Camera*>::New(klass, GetAllCount());
-					method->Invoke<int>(array);
-					return array->ToVector();
+					if (const int count = GetAllCount(); count != 0) {
+						const auto array = Array<Camera*>::New(klass, count);
+						method->Invoke<int>(array);
+						return array->ToVector();
+					}
 				}
 
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto GetDepth() -> float {
+				if (!this) return 0.0f;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("get_depth");
 				if (method) return method->Invoke<float>(this);
-				throw std::logic_error("nullptr");
+				return 0.0f;
 			}
 
 			auto SetDepth(const float depth) -> void {
+				if (!this) return;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("set_depth", { "*" });
 				if (method) return method->Invoke<void>(this, depth);
 			}
-			auto SetFoV(const float fov) {
+
+			auto SetFoV(const float fov) -> void {
+				if (!this) return;
 				static Method* method_fieldOfView;
 				if (!method_fieldOfView) method_fieldOfView = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("set_fieldOfView", { "*" });
 				if (method_fieldOfView) return method_fieldOfView->Invoke<void>(this, fov);
 			}
-			auto WorldToScreenPoint(const Vector3& position, const Eye eye) -> Vector3 {
+
+			auto GetFoV() -> float {
+				if (!this) return 0.0f;
+				static Method* method_fieldOfView;
+				if (!method_fieldOfView) method_fieldOfView = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("get_fieldOfView");
+				if (method_fieldOfView) return method_fieldOfView->Invoke<float>(this);
+				return 0.0f;
+			}
+
+			auto WorldToScreenPoint(const Vector3& position, const Eye eye = Eye::Mono) -> Vector3 {
+				if (!this) return { -100, -100, -100 };
 				static Method* method;
-				if (!method) { 
-					if (mode_ == Mode::Mono) {
-						method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("WorldToScreenPoint_Injected");
-					} else {
-						method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("WorldToScreenPoint", {"*", "*"});
-					}
-				} 
+				if (!method) {
+					if (mode_ == Mode::Mono) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("WorldToScreenPoint_Injected");
+					else method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("WorldToScreenPoint", { "*", "*" });
+				}
 				if (mode_ == Mode::Mono && method) {
 					const Vector3 vec3{};
 					method->Invoke<void>(this, position, eye, &vec3);
@@ -1727,7 +1756,8 @@ public:
 				return {};
 			}
 
-			auto ScreenToWorldPoint(const Vector3& position, const Eye eye) -> Vector3 {
+			auto ScreenToWorldPoint(const Vector3& position, const Eye eye = Eye::Mono) -> Vector3 {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>(mode_ == Mode::Mono ? "ScreenToWorldPoint_Injected" : "ScreenToWorldPoint");
 				if (mode_ == Mode::Mono && method) {
@@ -1740,6 +1770,7 @@ public:
 			}
 
 			auto CameraToWorldMatrix() -> Matrix4x4 {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>(mode_ == Mode::Mono ? "get_cameraToWorldMatrix_Injected" : "get_cameraToWorldMatrix");
 				if (mode_ == Mode::Mono && method) {
@@ -1755,7 +1786,7 @@ public:
 		struct Transform : Component {
 			auto GetPosition() -> Vector3 {
 				static Method* method;
-				if (!this) { return {}; }
+				if (!this) return {};
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_position_Injected" : "get_position");
 				if (mode_ == Mode::Mono && method) {
 					const Vector3 vec3{};
@@ -1768,16 +1799,15 @@ public:
 
 			auto SetPosition(const Vector3& position) -> void {
 				static Method* method;
-				if (!this) { return; }
+				if (!this) return;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_position_Injected" : "set_position");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
-				return;
 			}
 
 			auto GetRotation() -> Quaternion {
 				static Method* method;
-				if (!this) { return {}; }
+				if (!this) return {};
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_rotation_Injected" : "get_rotation");
 				if (mode_ == Mode::Mono && method) {
 					const Quaternion vec3{};
@@ -1790,16 +1820,15 @@ public:
 
 			auto SetRotation(const Quaternion& position) -> void {
 				static Method* method;
-				if (!this) { return; }
+				if (!this) return;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_rotation_Injected" : "set_rotation");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
-				return;
 			}
 
 			auto GetLocalPosition() -> Vector3 {
 				static Method* method;
-				if (!this) { return {}; }
+				if (!this) return {};
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_localPosition_Injected" : "get_localPosition");
 				if (mode_ == Mode::Mono && method) {
 					const Vector3 vec3{};
@@ -1812,16 +1841,15 @@ public:
 
 			auto SetLocalPosition(const Vector3& position) -> void {
 				static Method* method;
-				if (!this) { return; }
+				if (!this) return;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_localPosition_Injected" : "set_localPosition");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
-				return;
 			}
 
 			auto GetLocalRotation() -> Quaternion {
 				static Method* method;
-				if (!this) { return {}; }
+				if (!this) return {};
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_localRotation_Injected" : "get_localRotation");
 				if (mode_ == Mode::Mono && method) {
 					const Quaternion vec3{};
@@ -1834,16 +1862,15 @@ public:
 
 			auto SetLocalRotation(const Quaternion& position) -> void {
 				static Method* method;
-				if (!this) { return; }
+				if (!this) return;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_localRotation_Injected" : "set_localRotation");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
-				return;
 			}
 
 			auto GetLocalScale() -> Vector3 {
 				static Method* method;
-				if (!this) { return {}; }
+				if (!this) return {};
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_localScale_Injected" : "get_localScale");
 				if (mode_ == Mode::Mono && method) {
 					const Vector3 vec3{};
@@ -1856,16 +1883,15 @@ public:
 
 			auto SetLocalScale(const Vector3& position) -> void {
 				static Method* method;
-				if (!this) { return; };
+				if (!this) return;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_localScale_Injected" : "set_localScale");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
-				return;
 			}
 
 			auto GetChildCount() -> int {
 				static Method* method;
-				if (!this) { return 0; }
+				if (!this) return 0;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_childCount");
 				if (method) return method->Invoke<int>(this);
 				return 0;
@@ -1873,7 +1899,7 @@ public:
 
 			auto GetChild(const int index) -> Transform* {
 				static Method* method;
-				if (!this) { return nullptr; }
+				if (!this) return nullptr;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("GetChild");
 				if (method) return method->Invoke<Transform*>(this, index);
 				return nullptr;
@@ -1881,7 +1907,7 @@ public:
 
 			auto GetRoot() -> Transform* {
 				static Method* method;
-				if (!this) { return nullptr; }
+				if (!this) return nullptr;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("GetRoot");
 				if (method) return method->Invoke<Transform*>(this);
 				return nullptr;
@@ -1889,7 +1915,7 @@ public:
 
 			auto GetParent() -> Transform* {
 				static Method* method;
-				if (!this) { return nullptr; }
+				if (!this) return nullptr;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("GetParent");
 				if (method) return method->Invoke<Transform*>(this);
 				return nullptr;
@@ -1897,7 +1923,7 @@ public:
 
 			auto GetLossyScale() -> Vector3 {
 				static Method* method;
-				if (!this) { return {}; }
+				if (!this) return {};
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_lossyScale_Injected" : "get_lossyScale");
 				if (mode_ == Mode::Mono && method) {
 					const Vector3 vec3{};
@@ -1910,7 +1936,7 @@ public:
 
 			auto TransformPoint(const Vector3& position) -> Vector3 {
 				static Method* method;
-				if (!this) { return {}; }
+				if (!this) return {};
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "TransformPoint_Injected" : "TransformPoint");
 				if (mode_ == Mode::Mono && method) {
 					const Vector3 vec3{};
@@ -1923,52 +1949,47 @@ public:
 
 			auto LookAt(const Vector3& worldPosition) -> void {
 				static Method* method;
-				if (!this) { return; }
+				if (!this) return;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("LookAt", { "Vector3" });
 				if (method) return method->Invoke<void>(this, worldPosition);
-				return;
 			}
 
 			auto Rotate(const Vector3& eulers) -> void {
 				static Method* method;
-				if (!this) { return; }
+				if (!this) return;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("Rotate", { "Vector3" });
 				if (method) return method->Invoke<void>(this, eulers);
-				return;
 			}
 		};
 
 		struct GameObject : UnityObject {
 			static auto Create(GameObject* obj, const std::string& name) -> void {
+				if (!obj) return;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("Internal_CreateGameObject");
 				if (method) method->Invoke<void, GameObject*, String*>(obj, String::New(name));
-				throw std::logic_error("nullptr");
 			}
 
 			static auto FindGameObjectsWithTag(const std::string& name) -> std::vector<GameObject*> {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("FindGameObjectsWithTag");
 				if (method) {
-					std::vector<GameObject*> rs{};
-					const auto               array = method->Invoke<Array<GameObject*>*>(String::New(name));
-					rs.reserve(array->max_length);
-					for (auto i = 0; i < array->max_length; i++) rs.push_back(array->At(i));
-					return rs;
+					const auto array = method->Invoke<Array<GameObject*>*>(String::New(name));
+					return array->ToVector();
 				}
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			static auto Find(const std::string& name) -> GameObject* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("Find");
 				if (method) return method->Invoke<GameObject*>(String::New(name));
-				throw std::logic_error("nullptr");
+				return nullptr;
 			}
 
 			auto GetActive() -> bool {
 				static Method* method;
-				if (!this) { return false; };
+				if (!this) return false;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_active");
 				if (method) return method->Invoke<bool>(this);
 				return false;
@@ -1976,15 +1997,14 @@ public:
 
 			auto SetActive(bool value) -> void {
 				static Method* method;
-				if (!this) { return; };
+				if (!this) return;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("set_active");
 				if (method) return method->Invoke<void>(this, value);
-				return;
 			}
 
 			auto GetActiveSelf() -> bool {
 				static Method* method;
-				if (!this) { return false; };
+				if (!this) return false;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_activeSelf");
 				if (method) return method->Invoke<bool>(this);
 				return false;
@@ -1992,7 +2012,7 @@ public:
 
 			auto GetActiveInHierarchy() -> bool {
 				static Method* method;
-				if (!this) { return false; };
+				if (!this) return false;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_activeInHierarchy");
 				if (method) return method->Invoke<bool>(this);
 				return false;
@@ -2000,7 +2020,7 @@ public:
 
 			auto GetIsStatic() -> bool {
 				static Method* method;
-				if (!this) { return false; };
+				if (!this) return false;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_isStatic");
 				if (method) return method->Invoke<bool>(this);
 				return false;
@@ -2008,57 +2028,63 @@ public:
 
 			auto GetTransform() -> Transform* {
 				static Method* method;
-				if (!this) { return nullptr; };
+				if (!this) return nullptr;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_transform");
 				if (method) return method->Invoke<Transform*>(this);
 				return nullptr;
 			}
 
-			auto GetTag() -> String* {
+			auto GetTag() -> std::string {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_tag");
-				if (method) return method->Invoke<String*>(this);
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<String*>(this)->ToString();
+				return {};
 			}
 
 			template <typename T>
 			auto GetComponent() -> T {
+				if (!this) return T();
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent");
 				if (method) return method->Invoke<T>(this);
-				throw std::logic_error("nullptr");
+				return T();
 			}
 
 			template <typename T>
-			auto GetComponent(const Class* type) -> T {
+			auto GetComponent(Class* type) -> T {
+				if (!this) return T();
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent", { "System.Type" });
-				if (method) return method->Invoke<T>(this, type->GetType().GetObject());
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<T>(this, type->GetType());
+				return T();
 			}
 
 			template <typename T>
-			auto GetComponentInChildren(const Class* type) -> T {
+			auto GetComponentInChildren(Class* type) -> T {
+				if (!this) return T();
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentInChildren", { "System.Type" });
-				if (method) return method->Invoke<T>(this, type->GetType().GetObject());
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<T>(this, type->GetType());
+				return T();
 			}
 
 			template <typename T>
-			auto GetComponentInParent(const Class* type) -> T {
+			auto GetComponentInParent(Class* type) -> T {
+				if (!this) return T();
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentInParent", { "System.Type" });
-				if (method) return method->Invoke<T>(this, type->GetType().GetObject());
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<T>(this, type->GetType());
+				return T();
 			}
 
 			template <typename T>
 			auto GetComponents(Class* type, bool useSearchTypeAsArrayReturnType = false, bool recursive = false, bool includeInactive = true, bool reverse = false, List<T>* resultList = nullptr) -> std::vector<T> {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentsInternal");
-				if (method) return method->Invoke<Array<T>*>(this, type->GetType().GetObject(), useSearchTypeAsArrayReturnType, recursive, includeInactive, reverse, resultList)->ToVector();
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<Array<T>*>(this, type->GetType(), useSearchTypeAsArrayReturnType, recursive, includeInactive, reverse, resultList)->ToVector();
+				return {};
 			}
 
 			template <typename T>
@@ -2076,14 +2102,14 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("LayerMask")->Get<Method>("NameToLayer");
 				if (method) return method->Invoke<int>(String::New(layerName));
-				throw std::logic_error("nullptr");
+				return 0;
 			}
 
 			static auto LayerToName(const int layer) -> std::string {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("LayerMask")->Get<Method>("LayerToName");
 				if (method) return method->Invoke<String*>(layer)->ToString();
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
@@ -2125,6 +2151,7 @@ public:
 
 		struct Collider : Component {
 			auto GetBounds() -> Bounds {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Collider")->Get<Method>("get_bounds_Injected");
 				if (method) {
@@ -2132,12 +2159,13 @@ public:
 					method->Invoke<void>(this, &bounds);
 					return bounds;
 				}
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
 		struct Mesh : UnityObject {
 			auto GetBounds() -> Bounds {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Mesh")->Get<Method>("get_bounds_Injected");
 				if (method) {
@@ -2145,7 +2173,7 @@ public:
 					method->Invoke<void>(this, &bounds);
 					return bounds;
 				}
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
@@ -2197,6 +2225,7 @@ public:
 
 		struct Renderer : Component {
 			auto GetBounds() -> Bounds {
+				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Renderer")->Get<Method>("get_bounds_Injected");
 				if (method) {
@@ -2204,49 +2233,48 @@ public:
 					method->Invoke<void>(this, &bounds);
 					return bounds;
 				}
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
 		struct Behaviour : Component {
 			auto GetEnabled() -> bool {
+				if (!this) return false;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Behaviour")->Get<Method>("get_enabled");
 				if (method) return method->Invoke<bool>(this);
-				throw std::logic_error("nullptr");
+				return false;
 			}
 
-			auto SetEnabled(const bool value) -> bool {
+			auto SetEnabled(const bool value) -> void {
+				if (!this) return;
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Behaviour")->Get<Method>("set_enabled");
-				if (method) return method->Invoke<bool>(this, value);
-				throw std::logic_error("nullptr");
+				if (method) return method->Invoke<void>(this, value);
 			}
 		};
 
-		struct MonoBehaviour : Behaviour {
-		};
+		struct MonoBehaviour : Behaviour {};
 
 		struct Physics : Object {
 			static auto Linecast(const Vector3& start, const Vector3& end) -> bool {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Linecast", { "*", "*" });
 				if (method) return method->Invoke<bool>(start, end);
-				throw std::logic_error("nullptr");
+				return false;
 			}
 
 			static auto Raycast(const Vector3& origin, const Vector3& direction, const float maxDistance) -> bool {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Raycast", { "*", "*", "*" });
 				if (method) return method->Invoke<bool>(origin, direction, maxDistance);
-				throw std::logic_error("nullptr");
+				return false;
 			}
 
 			static auto IgnoreCollision(Collider* collider1, Collider* collider2) -> void {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("IgnoreCollision1", { "*", "*" });
 				if (method) return method->Invoke<void>(collider1, collider2);
-				throw std::logic_error("nullptr");
 			}
 		};
 
@@ -2311,8 +2339,11 @@ public:
 			};
 
 			auto GetBoneTransform(const HumanBodyBones humanBoneId) -> Transform* {
+#if WINDOWS_MODE
+				if (IsBadReadPtr(this, sizeof(Animator))) return nullptr;
+#endif
 				static Method* method;
-				if (!this) { return nullptr; }
+				if (!this) return nullptr;
 				if (!method) method = Get("UnityEngine.AnimationModule.dll")->Get("Animator")->Get<Method>("GetBoneTransform");
 				if (method) return method->Invoke<Transform*>(this, humanBoneId);
 				return nullptr;
@@ -2322,9 +2353,9 @@ public:
 		template <typename Return, typename... Args>
 		static auto Invoke(const void* address, Args... args) -> Return {
 #if WINDOWS_MODE
-			static bool badPtr;
 			try {
-				if (!badPtr) badPtr = !IsBadCodePtr(static_cast<FARPROC>(address));
+				bool badPtr;
+				if (!badPtr) badPtr = !IsBadCodePtr(FARPROC(address));
 				if (address != nullptr && badPtr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
 			}
 			catch (...) {}
