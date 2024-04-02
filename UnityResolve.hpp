@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <vector>
 #include <ranges>
+#include <regex>
 #if WINDOWS_MODE
 #include <windows.h>
 #undef GetObject
