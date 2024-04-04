@@ -23,8 +23,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#include "UnityResolve.hpp"
+#include <ranges>
+#include <regex>
 #if WINDOWS_MODE
 #include <windows.h>
 #undef GetObject
