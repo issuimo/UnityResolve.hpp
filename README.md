@@ -2,7 +2,12 @@
 > 有新的功能建议或者Bug可以提交Issues (当然你也可以尝试自己修改代码后提交到该仓库\
 > New feature suggestions or bugs can be commit as issues. Of course, you can also try modifying the code yourself and then commit it to the repository.
 > > Dome
-> > - [Phasmophobia Cheat](https://github.com/issuimo/PhasmophobiaCheat/tree/main)
+> > - [Phasmophobia Cheat](https://github.com/issuimo/PhasmophobiaCheat/tree/main) 
+
+> 如果是MSVC编译器请打开SHE选项 \
+> If using the MSVC compiler, please open the Secure Heap Exceptions (SHE) option. \
+> 对于高版本安卓程序崩溃的可能问题请参阅 [link](https://github.com/issuimo/UnityResolve.hpp/issues/11) \
+> For potential issues related to crashes in higher version Android programs, please refer to the link [link](https://github.com/issuimo/UnityResolve.hpp/issues/11)
 <hr>
 <h3 align="center">简要概述 (Brief overview)</h3>
 <hr>
