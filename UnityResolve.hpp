@@ -20,11 +20,12 @@
 #include <fstream>
 #include <iostream>
 #include <mutex>
+#include <ranges>
+#include <regex>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include "UnityResolve.hpp"
 #if WINDOWS_MODE
 #include <windows.h>
 #undef GetObject
