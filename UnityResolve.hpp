@@ -1,4 +1,5 @@
 ﻿/*
+ * Update: 2024-3-2 22:11
  * Source: https://github.com/issuimo/UnityResolve.hpp
  * Author: github@issuimo
  */
@@ -19,11 +20,11 @@
 #include <fstream>
 #include <iostream>
 #include <mutex>
-#include <ranges>
-#include <regex>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "UnityResolve.hpp"
 #if WINDOWS_MODE
 #include <windows.h>
 #undef GetObject
@@ -143,12 +144,9 @@ public:
 			if (!pMethod) pMethod = UnityResolve::Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>(mode_ == Mode::Il2Cpp ? "FindObjectsOfType" : "FindObjectsOfTypeAll", { "System.Type" });
 			if (!objType) objType = this->GetType();
 
-			if (pMethod && objType) {
-				auto array = pMethod->Invoke<UnityType::Array<T>*>(objType);
-				return array->ToVector();
-			}
+			if (pMethod && objType) if (auto array = pMethod->Invoke<UnityType::Array<T>*>(objType)) return array->ToVector();
 
-			return std::vector<T>();
+			return std::vector<T>(0);
 		}
 
 		template <typename T>
@@ -208,13 +206,11 @@ public:
 			try {
 				if (!badPtr) badPtr = !IsBadCodePtr(reinterpret_cast<FARPROC>(function));
 				if (function && badPtr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
-			}
-			catch (...) {}
+			} catch (...) { std::cout << name << " Invoke Error\n"; }
 #else
 			try {
 				if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
-			}
-			catch (...) {}
+			} catch (...) { std::cout << name << " Invoke Error\n"; }
 #endif
 			return Return();
 		}
@@ -534,6 +530,7 @@ public:
 				return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(address_[funcName])(args...);
 			}
 			catch (...) {
+				std::cout << funcName << " Invoke Error\n";
 				Return();
 			}
 		}
@@ -1289,6 +1286,7 @@ public:
 					return converterX.to_bytes(m_firstChar);
 				}
 				catch (...) {
+					std::cout << "String Invoke Error\n";
 					return {};
 				}
 			}
@@ -1382,8 +1380,8 @@ public:
 					rs.reserve(this->max_length);
 					for (auto i = 0; i < this->max_length; i++) rs.push_back(this->At(i));
 					return rs;
-				}
-				catch (...) {
+				} catch (...) {
+					std::cout << "Array Invoke Error\n";
 					return {};
 				}
 			}
