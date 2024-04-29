@@ -50,6 +50,7 @@
 > - [X] Animator
 > - [X] CapsuleCollider
 > - [X] BoxCollider
+> - [X] Time
 > - More...
 > ### 功能 (Function)
 > - [X] DumpToFile
