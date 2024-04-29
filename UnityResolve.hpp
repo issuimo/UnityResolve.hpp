@@ -894,6 +894,8 @@ public:
 				this->z /= x.z;
 				return *this;
 			}
+
+			auto operator ==(const Vector3 x) const -> bool { return this->x == x.x && this->y == x.y && this->z == x.z; }
 		};
 
 		struct Vector2 {
@@ -959,6 +961,8 @@ public:
 				this->y /= x.y;
 				return *this;
 			}
+
+			auto operator ==(const Vector2 x) const -> bool { return this->x == x.x && this->y == x.y; }
 		};
 
 		struct Vector4 {
@@ -1036,6 +1040,8 @@ public:
 				this->w /= x.w;
 				return *this;
 			}
+
+			auto operator ==(const Vector4 x) const -> bool { return this->x == x.x && this->y == x.y && this->z == x.z && this->w == x.w; }
 		};
 
 		struct Quaternion {
@@ -1168,6 +1174,8 @@ public:
 				this->w /= x.w;
 				return *this;
 			}
+
+			auto operator ==(const Quaternion x) const -> bool { return this->x == x.x && this->y == x.y && this->z == x.z && this->w == x.w; }
 		};
 
 		struct Bounds {
@@ -1803,6 +1811,51 @@ public:
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_position_Injected" : "set_position");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
+			}
+
+			auto GetRight() -> Vector3 {
+				static Method* method;
+				if (!this) return {};
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_right");
+				if (method) return method->Invoke<Vector3>(this);
+				return {};
+			}
+
+			auto SetRight(const Vector3& value) -> void {
+				static Method* method;
+				if (!this) return;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("set_right");
+				if (method) return method->Invoke<void>(this, value);
+			}
+
+			auto GetUp() -> Vector3 {
+				static Method* method;
+				if (!this) return {};
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_up");
+				if (method) return method->Invoke<Vector3>(this);
+				return {};
+			}
+
+			auto SetUp(const Vector3& value) -> void {
+				static Method* method;
+				if (!this) return;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("set_up");
+				if (method) return method->Invoke<void>(this, value);
+			}
+
+			auto GetForward() -> Vector3 {
+				static Method* method;
+				if (!this) return {};
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_forward");
+				if (method) return method->Invoke<Vector3>(this);
+				return {};
+			}
+
+			auto SetForward(const Vector3& value) -> void {
+				static Method* method;
+				if (!this) return;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("set_forward");
+				if (method) return method->Invoke<void>(this, value);
 			}
 
 			auto GetRotation() -> Quaternion {
