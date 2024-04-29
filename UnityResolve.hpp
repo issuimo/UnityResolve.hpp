@@ -752,6 +752,7 @@ public:
 		struct LayerMask;
 		struct Rigidbody;
 		struct Physics;
+		struct Time;
 		struct GameObject;
 		struct Collider;
 		struct Vector4;
@@ -2274,6 +2275,42 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("IgnoreCollision1", { "*", "*" });
 				if (method) return method->Invoke<void>(collider1, collider2);
+			}
+		};
+
+		struct Time {
+			static auto GetTime() -> float {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_time");
+				if (method) return method->Invoke<float>();
+				return 0.0f;
+			}
+
+			static auto GetDeltaTime() -> float {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_deltaTime");
+				if (method) return method->Invoke<float>();
+				return 0.0f;
+			}
+
+			static auto GetFixedDeltaTime() -> float {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_fixedDeltaTime");
+				if (method) return method->Invoke<float>();
+				return 0.0f;
+			}
+
+			static auto GetTimeScale() -> float {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_timeScale");
+				if (method) return method->Invoke<float>();
+				return 0.0f;
+			}
+
+			static auto SetTimeScale(float value) -> void {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("set_timeScale");
+				if (method) return method->Invoke<void>(value);
 			}
 		};
 
