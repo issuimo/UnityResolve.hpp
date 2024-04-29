@@ -752,6 +752,7 @@ public:
 		struct LayerMask;
 		struct Rigidbody;
 		struct Physics;
+		struct Time;
 		struct GameObject;
 		struct Collider;
 		struct Vector4;
@@ -893,6 +894,8 @@ public:
 				this->z /= x.z;
 				return *this;
 			}
+
+			auto operator ==(const Vector3 x) const -> bool { return this->x == x.x && this->y == x.y && this->z == x.z; }
 		};
 
 		struct Vector2 {
@@ -958,6 +961,8 @@ public:
 				this->y /= x.y;
 				return *this;
 			}
+
+			auto operator ==(const Vector2 x) const -> bool { return this->x == x.x && this->y == x.y; }
 		};
 
 		struct Vector4 {
@@ -1035,6 +1040,8 @@ public:
 				this->w /= x.w;
 				return *this;
 			}
+
+			auto operator ==(const Vector4 x) const -> bool { return this->x == x.x && this->y == x.y && this->z == x.z && this->w == x.w; }
 		};
 
 		struct Quaternion {
@@ -1167,6 +1174,8 @@ public:
 				this->w /= x.w;
 				return *this;
 			}
+
+			auto operator ==(const Quaternion x) const -> bool { return this->x == x.x && this->y == x.y && this->z == x.z && this->w == x.w; }
 		};
 
 		struct Bounds {
@@ -1804,6 +1813,51 @@ public:
 				if (method) return method->Invoke<void>(this, position);
 			}
 
+			auto GetRight() -> Vector3 {
+				static Method* method;
+				if (!this) return {};
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_right");
+				if (method) return method->Invoke<Vector3>(this);
+				return {};
+			}
+
+			auto SetRight(const Vector3& value) -> void {
+				static Method* method;
+				if (!this) return;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("set_right");
+				if (method) return method->Invoke<void>(this, value);
+			}
+
+			auto GetUp() -> Vector3 {
+				static Method* method;
+				if (!this) return {};
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_up");
+				if (method) return method->Invoke<Vector3>(this);
+				return {};
+			}
+
+			auto SetUp(const Vector3& value) -> void {
+				static Method* method;
+				if (!this) return;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("set_up");
+				if (method) return method->Invoke<void>(this, value);
+			}
+
+			auto GetForward() -> Vector3 {
+				static Method* method;
+				if (!this) return {};
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_forward");
+				if (method) return method->Invoke<Vector3>(this);
+				return {};
+			}
+
+			auto SetForward(const Vector3& value) -> void {
+				static Method* method;
+				if (!this) return;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("set_forward");
+				if (method) return method->Invoke<void>(this, value);
+			}
+
 			auto GetRotation() -> Quaternion {
 				static Method* method;
 				if (!this) return {};
@@ -2274,6 +2328,42 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("IgnoreCollision1", { "*", "*" });
 				if (method) return method->Invoke<void>(collider1, collider2);
+			}
+		};
+
+		struct Time {
+			static auto GetTime() -> float {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_time");
+				if (method) return method->Invoke<float>();
+				return 0.0f;
+			}
+
+			static auto GetDeltaTime() -> float {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_deltaTime");
+				if (method) return method->Invoke<float>();
+				return 0.0f;
+			}
+
+			static auto GetFixedDeltaTime() -> float {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_fixedDeltaTime");
+				if (method) return method->Invoke<float>();
+				return 0.0f;
+			}
+
+			static auto GetTimeScale() -> float {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_timeScale");
+				if (method) return method->Invoke<float>();
+				return 0.0f;
+			}
+
+			static auto SetTimeScale(float value) -> void {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("set_timeScale");
+				if (method) return method->Invoke<void>(value);
 			}
 		};
 
