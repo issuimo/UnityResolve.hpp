@@ -4,8 +4,8 @@
 > > Dome
 > > - [Phasmophobia Cheat](https://github.com/issuimo/PhasmophobiaCheat/tree/main) 
 
-> 如果是MSVC编译器请打开SHE选项 \
-> If using the MSVC compiler, please open the Secure Heap Exceptions (SHE) option. \
+> 如果是MSVC编译器请打开SEH选项 \
+> If using the MSVC compiler, please open the SEH option. \
 > 对于高版本安卓程序崩溃的可能问题请参阅 [link](https://github.com/issuimo/UnityResolve.hpp/issues/11) \
 > For potential issues related to crashes in higher version Android programs, please refer to the link [link](https://github.com/issuimo/UnityResolve.hpp/issues/11)
 <hr>
