@@ -1,30 +1,25 @@
-﻿/*
- * Update: 2024-3-2 22:11
- * Source: https://github.com/issuimo/UnityResolve.hpp
- * Author: github@issuimo
- */
-
-#ifndef UNITYRESOLVE_HPP
+﻿#ifndef UNITYRESOLVE_HPP
 #define UNITYRESOLVE_HPP
+
 #define WINDOWS_MODE 1 // 如果需要请改为 1 | 1 if you need
 #define ANDROID_MODE 0
 #define LINUX_MODE 0
- /* Never
-  * #define MAC_MODE 0
-  * #define IOS_MODE 0
-  */
+
 #if WINDOWS_MODE || LINUX_MODE
 #include <format>
+#include <ranges>
+#include <regex>
 #endif
+
 #include <codecvt>
 #include <fstream>
 #include <iostream>
 #include <mutex>
-#include <ranges>
-#include <regex>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "UnityResolve.hpp"
 
 #if WINDOWS_MODE
 #include <windows.h>
@@ -84,9 +79,9 @@ public:
 
 	struct Class final {
 		void* address;
-		std::string          name;
-		std::string          parent;
-		std::string          namespaze;
+		std::string name;
+		std::string parent;
+		std::string namespaze;
 		std::vector<Field*>  fields;
 		std::vector<Method*> methods;
 		void* objType;
@@ -204,14 +199,10 @@ public:
 			if (!this) return Return();
 			Compile();
 #if WINDOWS_MODE
-			try {
-				if (!badPtr) badPtr = !IsBadCodePtr(reinterpret_cast<FARPROC>(function));
-				if (function && badPtr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
-			} catch (...) { std::cout << name << " Invoke Error\n"; }
+			if (!badPtr) badPtr = !IsBadCodePtr(reinterpret_cast<FARPROC>(function));
+			if (function && badPtr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
 #else
-			try {
-				if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
-			} catch (...) { std::cout << name << " Invoke Error\n"; }
+			if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
 #endif
 			return Return();
 		}
@@ -235,16 +226,13 @@ public:
 				if constexpr (std::is_void_v<Return>) {
 					UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc);
 					return;
-				}
-				else return *static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc));
+				} else return *static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc));
 			}
 
 			if constexpr (std::is_void_v<Return>) {
 				UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc);
 				return;
-			}
-			else return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
-			return Return();
+			} else return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
 		}
 
 		template <typename Return, typename... Args>
@@ -504,20 +492,8 @@ public:
 	}
 #endif
 
-	/**
-	 * \brief 调用dll函数
-	 * \tparam Return 返回类型 (必须)
-	 * \tparam Args 参数类型 (可以忽略)
-	 * \param funcName dll导出函数名称
-	 * \param args 参数
-	 * \return 模板类型
-	 */
 	template <typename Return, typename... Args>
 	static auto Invoke(const std::string& funcName, Args... args) -> Return {
-		static std::mutex mutex{};
-		std::lock_guard   lock(mutex);
-
-		// 检查函数是否已经获取地址, 没有则自动获取
 #if WINDOWS_MODE
 		if (!address_.contains(funcName) || !address_[funcName]) address_[funcName] = static_cast<void*>(GetProcAddress(static_cast<HMODULE>(hmodule_), funcName.c_str()));
 #elif  ANDROID_MODE || LINUX_MODE
@@ -529,13 +505,11 @@ public:
 		if (address_[funcName] != nullptr) {
 			try {
 				return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(address_[funcName])(args...);
-			}
-			catch (...) {
-				std::cout << funcName << " Invoke Error\n";
-				Return();
+			} catch (...) {
+				return Return();
 			}
 		}
-		Return();
+		return Return();
 	}
 
 	inline static std::vector<Assembly*> assembly;
@@ -723,8 +697,9 @@ private:
 					do {
 						if ((mType = Invoke<void*>("mono_signature_get_params", signature, &mIter))) {
 							int t_size{};
-							try { pMethod->args.push_back(new Method::Arg{ names[iname], new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size)} }); }
-							catch (...) {
+							try {
+								pMethod->args.push_back(new Method::Arg{ names[iname], new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size)} });
+							} catch (...) {
 								// USE SEH!!!
 							}
 							iname++;
@@ -752,7 +727,6 @@ public:
 		struct LayerMask;
 		struct Rigidbody;
 		struct Physics;
-		struct Time;
 		struct GameObject;
 		struct Collider;
 		struct Vector4;
@@ -780,6 +754,12 @@ public:
 		struct Animator;
 		struct CapsuleCollider;
 		struct BoxCollider;
+		struct FieldInfo;
+		struct MethodInfo;
+		struct PropertyInfo;
+		struct Assembly;
+		struct EventInfo;
+		struct MemberInfo;
 
 		struct Vector3 {
 			float x, y, z;
@@ -1244,39 +1224,538 @@ public:
 				return nullptr;
 			}
 
-			auto ToString() -> std::string {
+			auto ToString() -> String* {
 				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Object", "System")->Get<Method>("ToString");
-				if (method) return method->Invoke<String*>(this)->ToString();
+				if (method) return method->Invoke<String*>(this);
 				return {};
+			}
+
+			int GetHashCode() {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Object", "System")->Get<Method>("GetHashCode");
+				if (method) return method->Invoke<int>(this);
+				return 0;
+			}
+		};
+
+		enum class BindingFlags : uint32_t {
+			/// <summary>Specifies no binding flag.</summary>
+			Default = 0,
+			/// <summary>Specifies that the case of the member name should not be considered when binding.</summary>
+			IgnoreCase = 1,
+			/// <summary>Specifies that only members declared at the level of the supplied type's hierarchy should be considered. Inherited members are not considered.</summary>
+			DeclaredOnly = 2,
+			/// <summary>Specifies that instance members are to be included in the search.</summary>
+			Instance = 4,
+			/// <summary>Specifies that static members are to be included in the search.</summary>
+			Static = 8,
+			/// <summary>Specifies that public members are to be included in the search.</summary>
+			Public = 16,
+			/// <summary>Specifies that non-public members are to be included in the search.</summary>
+			NonPublic = 32,
+			/// <summary>Specifies that public and protected static members up the hierarchy should be returned. Private static members in inherited classes are not returned. Static members include fields, methods, events, and properties. Nested types are not returned.</summary>
+			FlattenHierarchy = 64,
+			/// <summary>Specifies that a method is to be invoked. This must not be a constructor or a type initializer.</summary>
+			InvokeMethod = 256,
+			/// <summary>Specifies that Reflection should create an instance of the specified type. Calls the constructor that matches the given arguments. The supplied member name is ignored. If the type of lookup is not specified, (Instance | Public) will apply. It is not possible to call a type initializer.</summary>
+			CreateInstance = 512,
+			/// <summary>Specifies that the value of the specified field should be returned.</summary>
+			GetField = 1024,
+			/// <summary>Specifies that the value of the specified field should be set.</summary>
+			SetField = 2048,
+			/// <summary>Specifies that the value of the specified property should be returned.</summary>
+			GetProperty = 4096,
+			/// <summary>Specifies that the value of the specified property should be set. For COM properties, specifying this binding flag is equivalent to specifying PutDispProperty and PutRefDispProperty.</summary>
+			SetProperty = 8192,
+			/// <summary>Specifies that the PROPPUT member on a COM object should be invoked. PROPPUT specifies a property-setting function that uses a value. Use PutDispProperty if a property has both PROPPUT and PROPPUTREF and you need to distinguish which one is called.</summary>
+			PutDispProperty = 16384,
+			/// <summary>Specifies that the PROPPUTREF member on a COM object should be invoked. PROPPUTREF specifies a property-setting function that uses a reference instead of a value. Use PutRefDispProperty if a property has both PROPPUT and PROPPUTREF and you need to distinguish which one is called.</summary>
+			PutRefDispProperty = 32768,
+			/// <summary>Specifies that types of the supplied arguments must exactly match the types of the corresponding formal parameters. Reflection throws an exception if the caller supplies a non-null Binder object, since that implies that the caller is supplying BindToXXX implementations that will pick the appropriate method.</summary>
+			ExactBinding = 65536,
+			/// <summary>Not implemented.</summary>
+			SuppressChangeType = 131072,
+			/// <summary>Returns the set of members whose parameter count matches the number of supplied arguments. This binding flag is used for methods with parameters that have default values and methods with variable arguments (varargs). This flag should only be used with <see cref="M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[],System.Reflection.ParameterModifier[],System.Globalization.CultureInfo,System.String[])" />.</summary>
+			OptionalParamBinding = 262144,
+			/// <summary>Used in COM interop to specify that the return value of the member can be ignored.</summary>
+			IgnoreReturn = 16777216,
+		};
+
+		enum class FieldAttributes : uint32_t {
+			/// <summary>Specifies the access level of a given field.</summary>
+			// Token: 0x04000C5C RID: 3164
+			FieldAccessMask = 7,
+			/// <summary>Specifies that the field cannot be referenced.</summary>
+			// Token: 0x04000C5D RID: 3165
+			PrivateScope = 0,
+			/// <summary>Specifies that the field is accessible only by the parent type.</summary>
+			// Token: 0x04000C5E RID: 3166
+			Private = 1,
+			/// <summary>Specifies that the field is accessible only by subtypes in this assembly.</summary>
+			// Token: 0x04000C5F RID: 3167
+			FamANDAssem = 2,
+			/// <summary>Specifies that the field is accessible throughout the assembly.</summary>
+			// Token: 0x04000C60 RID: 3168
+			Assembly = 3,
+			/// <summary>Specifies that the field is accessible only by type and subtypes.</summary>
+			// Token: 0x04000C61 RID: 3169
+			Family = 4,
+			/// <summary>Specifies that the field is accessible by subtypes anywhere, as well as throughout this assembly.</summary>
+			// Token: 0x04000C62 RID: 3170
+			FamORAssem = 5,
+			/// <summary>Specifies that the field is accessible by any member for whom this scope is visible.</summary>
+			// Token: 0x04000C63 RID: 3171
+			Public = 6,
+			/// <summary>Specifies that the field represents the defined type, or else it is per-instance.</summary>
+			// Token: 0x04000C64 RID: 3172
+			Static = 16,
+			/// <summary>Specifies that the field is initialized only, and can be set only in the body of a constructor. </summary>
+			// Token: 0x04000C65 RID: 3173
+			InitOnly = 32,
+			/// <summary>Specifies that the field's value is a compile-time (static or early bound) constant. Any attempt to set it throws <see cref="T:System.FieldAccessException" />.</summary>
+			// Token: 0x04000C66 RID: 3174
+			Literal = 64,
+			/// <summary>Specifies that the field does not have to be serialized when the type is remoted.</summary>
+			// Token: 0x04000C67 RID: 3175
+			NotSerialized = 128,
+			/// <summary>Specifies that the field has a relative virtual address (RVA). The RVA is the location of the method body in the current image, as an address relative to the start of the image file in which it is located.</summary>
+			// Token: 0x04000C68 RID: 3176
+			HasFieldRVA = 256,
+			/// <summary>Specifies a special method, with the name describing how the method is special.</summary>
+			// Token: 0x04000C69 RID: 3177
+			SpecialName = 512,
+			/// <summary>Specifies that the common language runtime (metadata internal APIs) should check the name encoding.</summary>
+			// Token: 0x04000C6A RID: 3178
+			RTSpecialName = 1024,
+			/// <summary>Specifies that the field has marshaling information.</summary>
+			// Token: 0x04000C6B RID: 3179
+			HasFieldMarshal = 4096,
+			/// <summary>Reserved for future use.</summary>
+			// Token: 0x04000C6C RID: 3180
+			PinvokeImpl = 8192,
+			/// <summary>Specifies that the field has a default value.</summary>
+			// Token: 0x04000C6D RID: 3181
+			HasDefault = 32768,
+			/// <summary>Reserved.</summary>
+			// Token: 0x04000C6E RID: 3182
+			ReservedMask = 38144
+		};
+
+		enum class MemberTypes : uint32_t {
+			/// <summary>Specifies that the member is a constructor, representing a <see cref="T:System.Reflection.ConstructorInfo" /> member. Hexadecimal value of 0x01.</summary>
+			// Token: 0x04000C8D RID: 3213
+			Constructor = 1,
+			/// <summary>Specifies that the member is an event, representing an <see cref="T:System.Reflection.EventInfo" /> member. Hexadecimal value of 0x02.</summary>
+			// Token: 0x04000C8E RID: 3214
+			Event = 2,
+			/// <summary>Specifies that the member is a field, representing a <see cref="T:System.Reflection.FieldInfo" /> member. Hexadecimal value of 0x04.</summary>
+			// Token: 0x04000C8F RID: 3215
+			Field = 4,
+			/// <summary>Specifies that the member is a method, representing a <see cref="T:System.Reflection.MethodInfo" /> member. Hexadecimal value of 0x08.</summary>
+			// Token: 0x04000C90 RID: 3216
+			Method = 8,
+			/// <summary>Specifies that the member is a property, representing a <see cref="T:System.Reflection.PropertyInfo" /> member. Hexadecimal value of 0x10.</summary>
+			// Token: 0x04000C91 RID: 3217
+			Property = 16,
+			/// <summary>Specifies that the member is a type, representing a <see cref="F:System.Reflection.MemberTypes.TypeInfo" /> member. Hexadecimal value of 0x20.</summary>
+			// Token: 0x04000C92 RID: 3218
+			TypeInfo = 32,
+			/// <summary>Specifies that the member is a custom member type. Hexadecimal value of 0x40.</summary>
+			// Token: 0x04000C93 RID: 3219
+			Custom = 64,
+			/// <summary>Specifies that the member is a nested type, extending <see cref="T:System.Reflection.MemberInfo" />.</summary>
+			// Token: 0x04000C94 RID: 3220
+			NestedType = 128,
+			/// <summary>Specifies all member types.</summary>
+			// Token: 0x04000C95 RID: 3221
+			All = 191
+		};
+
+		struct MemberInfo {
+			
+		};
+
+		struct FieldInfo : public MemberInfo {
+			auto GetIsInitOnly() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsInitOnly");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsLiteral() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsLiteral");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsNotSerialized() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsNotSerialized");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsStatic() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsStatic");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsFamily() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsFamily");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsPrivate() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsPrivate");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsPublic() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsPublic");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetAttributes() -> FieldAttributes {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_Attributes");
+				if (method) return method->Invoke<FieldAttributes>(this);
+				return {};
+			}
+
+			auto GetMemberType() -> MemberTypes {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_MemberType");
+				if (method) return method->Invoke<MemberTypes>(this);
+				return {};
+			}
+
+			auto GetFieldOffset() -> int {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("GetFieldOffset");
+				if (method) return method->Invoke<int>(this);
+				return {};
+			}
+
+			template<typename T>
+			auto GetValue(Object* object) -> T {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("GetValue");
+				if (method) return method->Invoke<T>(this, object);
+				return T();
+			}
+
+			template<typename T>
+			auto SetValue(Object* object, T value) -> void {
+				if (!this) return;
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("SetValue", { "System.Object", "System.Object" });
+				if (method) return method->Invoke<T>(this, object, value);
 			}
 		};
 
 		struct CsType {
-
-			auto FormatTypeName() -> std::string {
+			auto FormatTypeName() -> String* {
 				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("FormatTypeName");
-				if (method) return method->Invoke<String*>(this)->ToString();
+				if (method) return method->Invoke<String*>(this);
 				return {};
 			}
 
-			auto GetFullName() -> std::string {
+			auto GetFullName() -> String* {
 				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_FullName");
-				if (method) return method->Invoke<String*>(this)->ToString();
+				if (method) return method->Invoke<String*>(this);
 				return {};
 			}
 
-			auto GetNamespace() -> std::string {
+			auto GetNamespace() -> String* {
 				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_Namespace");
-				if (method) return method->Invoke<String*>(this)->ToString();
+				if (method) return method->Invoke<String*>(this);
 				return {};
+			}
+
+			auto GetIsSerializable() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsSerializable");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetContainsGenericParameters() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_ContainsGenericParameters");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsVisible() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsVisible");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsNested() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsNested");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsArray() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsArray");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsByRef() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsByRef");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsPointer() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsPointer");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsConstructedGenericType() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsConstructedGenericType");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsGenericParameter() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsGenericParameter");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsGenericMethodParameter() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsGenericMethodParameter");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsGenericType() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsGenericType");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsGenericTypeDefinition() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsGenericTypeDefinition");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsSZArray() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsSZArray");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsVariableBoundArray() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsVariableBoundArray");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetHasElementType() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_HasElementType");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsAbstract() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsAbstract");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsSealed() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsSealed");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsClass() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsClass");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsNestedAssembly() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsNestedAssembly");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsNestedPublic() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsNestedPublic");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsNotPublic() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsNotPublic");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsPublic() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsPublic");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsExplicitLayout() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsExplicitLayout");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsCOMObject() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsCOMObject");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsContextful() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsContextful");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsCollectible() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsCollectible");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsEnum() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsEnum");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsMarshalByRef() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsMarshalByRef");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsPrimitive() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsPrimitive");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsValueType() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsValueType");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetIsSignatureType() -> bool {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsSignatureType");
+				if (method) return method->Invoke<bool>(this);
+				return false;
+			}
+
+			auto GetField(const std::string& name, BindingFlags flags = static_cast<BindingFlags>(static_cast<int>(BindingFlags::Instance) | static_cast<int>(BindingFlags::Static) | static_cast<int>(BindingFlags::Public))) -> FieldInfo* {
+				if (!this) return {};
+				static Method* method;
+				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("GetField", { "System.String name" });
+				if (method) return method->Invoke<FieldInfo*>(this, String::New(name), flags);
+				return nullptr;
 			}
 		};
 
@@ -1290,15 +1769,9 @@ public:
 				if (IsBadReadPtr(m_firstChar, m_stringLength)) return {};
 #endif
 				if (!this) return {};
-				try {
-					using convert_typeX = std::codecvt_utf8<wchar_t>;
-					std::wstring_convert<convert_typeX> converterX;
-					return converterX.to_bytes(m_firstChar);
-				}
-				catch (...) {
-					std::cout << "String Invoke Error\n";
-					return {};
-				}
+				using convert_typeX = std::codecvt_utf8<wchar_t>;
+				std::wstring_convert<convert_typeX> converterX;
+				return converterX.to_bytes(m_firstChar);
 			}
 
 			auto operator[](const int i) const -> wchar_t { return m_firstChar[i]; }
@@ -1385,15 +1858,10 @@ public:
 				if (IsBadReadPtr(this, sizeof(Array))) return {};
 #endif
 				if (!this) return {};
-				try {
-					std::vector<T> rs{};
-					rs.reserve(this->max_length);
-					for (auto i = 0; i < this->max_length; i++) rs.push_back(this->At(i));
-					return rs;
-				} catch (...) {
-					std::cout << "Array Invoke Error\n";
-					return {};
-				}
+				std::vector<T> rs{};
+				rs.reserve(this->max_length);
+				for (auto i = 0; i < this->max_length; i++) rs.push_back(this->At(i));
+				return rs;
 			}
 
 			auto Resize(int newSize) -> void {
@@ -1568,7 +2036,7 @@ public:
 			}
 		};
 
-		struct Component : UnityObject {
+		struct Component : public UnityObject {
 			auto GetTransform() -> Transform* {
 				if (!this) return nullptr;
 				static Method* method;
@@ -2290,7 +2758,7 @@ public:
 			}
 		};
 
-		struct Behaviour : Component {
+		struct Behaviour : public Component {
 			auto GetEnabled() -> bool {
 				if (!this) return false;
 				static Method* method;
@@ -2307,7 +2775,7 @@ public:
 			}
 		};
 
-		struct MonoBehaviour : Behaviour {};
+		struct MonoBehaviour : public Behaviour {};
 
 		struct Physics : Object {
 			static auto Linecast(const Vector3& start, const Vector3& end) -> bool {
@@ -2328,42 +2796,6 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("IgnoreCollision1", { "*", "*" });
 				if (method) return method->Invoke<void>(collider1, collider2);
-			}
-		};
-
-		struct Time {
-			static auto GetTime() -> float {
-				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_time");
-				if (method) return method->Invoke<float>();
-				return 0.0f;
-			}
-
-			static auto GetDeltaTime() -> float {
-				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_deltaTime");
-				if (method) return method->Invoke<float>();
-				return 0.0f;
-			}
-
-			static auto GetFixedDeltaTime() -> float {
-				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_fixedDeltaTime");
-				if (method) return method->Invoke<float>();
-				return 0.0f;
-			}
-
-			static auto GetTimeScale() -> float {
-				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_timeScale");
-				if (method) return method->Invoke<float>();
-				return 0.0f;
-			}
-
-			static auto SetTimeScale(float value) -> void {
-				static Method* method;
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("set_timeScale");
-				if (method) return method->Invoke<void>(value);
 			}
 		};
 
@@ -2442,17 +2874,9 @@ public:
 		template <typename Return, typename... Args>
 		static auto Invoke(const void* address, Args... args) -> Return {
 #if WINDOWS_MODE
-			try {
-				bool badPtr;
-				if (!badPtr) badPtr = !IsBadCodePtr(FARPROC(address));
-				if (address != nullptr && badPtr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
-			}
-			catch (...) {}
+			if (address != nullptr && !IsBadCodePtr(FARPROC(address))) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
 #elif LINUX_MODE || ANDROID_MODE
-			try {
-				if (address != nullptr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
-			}
-			catch (...) {}
+			if (address != nullptr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
 #endif
 			return Return();
 		}
