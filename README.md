@@ -51,6 +51,7 @@
 > - [X] CapsuleCollider
 > - [X] BoxCollider
 > - [X] Time
+> - [X] FieldInfo
 > - More...
 > ### 功能 (Function)
 > - [X] DumpToFile
