@@ -760,6 +760,7 @@ public:
 		struct Assembly;
 		struct EventInfo;
 		struct MemberInfo;
+		struct Time;
 
 		struct Vector3 {
 			float x, y, z;
@@ -1996,27 +1997,27 @@ public:
 		struct UnityObject : Object {
 			void* m_CachedPtr;
 
-			auto GetName() -> std::string {
+			auto GetName() -> String* {
 				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("get_name");
-				if (method) return method->Invoke<String*>(this)->ToString();
+				if (method) return method->Invoke<String*>(this);
 				return {};
 			}
 
-			auto ToString() -> std::string {
+			auto ToString() -> String* {
 				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("ToString");
-				if (method) return method->Invoke<String*>(this)->ToString();
+				if (method) return method->Invoke<String*>(this);
 				return {};
 			}
 
-			static auto ToString(UnityObject* obj) -> std::string {
+			static auto ToString(UnityObject* obj) -> String* {
 				if (!obj) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("ToString", { "*" });
-				if (method) return method->Invoke<String*>(obj)->ToString();
+				if (method) return method->Invoke<String*>(obj);
 				return {};
 			}
 
@@ -2053,11 +2054,11 @@ public:
 				return nullptr;
 			}
 
-			auto GetTag() -> std::string {
+			auto GetTag() -> String* {
 				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_tag");
-				if (method) return method->Invoke<String*>(this)->ToString();
+				if (method) return method->Invoke<String*>(this);
 				return {};
 			}
 
@@ -2555,11 +2556,11 @@ public:
 				return nullptr;
 			}
 
-			auto GetTag() -> std::string {
+			auto GetTag() -> String* {
 				if (!this) return {};
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_tag");
-				if (method) return method->Invoke<String*>(this)->ToString();
+				if (method) return method->Invoke<String*>(this);
 				return {};
 			}
 
@@ -2626,10 +2627,10 @@ public:
 				return 0;
 			}
 
-			static auto LayerToName(const int layer) -> std::string {
+			static auto LayerToName(const int layer) -> String* {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("LayerMask")->Get<Method>("LayerToName");
-				if (method) return method->Invoke<String*>(layer)->ToString();
+				if (method) return method->Invoke<String*>(layer);
 				return {};
 			}
 		};
@@ -2868,6 +2869,42 @@ public:
 				if (!method) method = Get("UnityEngine.AnimationModule.dll")->Get("Animator")->Get<Method>("GetBoneTransform");
 				if (method) return method->Invoke<Transform*>(this, humanBoneId);
 				return nullptr;
+			}
+		};
+
+		struct Time {
+			static auto GetTime() -> float {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_time");
+				if (method) return method->Invoke<float>();
+				return 0.0f;
+			}
+
+			static auto GetDeltaTime() -> float {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_deltaTime");
+				if (method) return method->Invoke<float>();
+				return 0.0f;
+			}
+
+			static auto GetFixedDeltaTime() -> float {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_fixedDeltaTime");
+				if (method) return method->Invoke<float>();
+				return 0.0f;
+			}
+
+			static auto GetTimeScale() -> float {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("get_timeScale");
+				if (method) return method->Invoke<float>();
+				return 0.0f;
+			}
+
+			static auto SetTimeScale(float value) -> void {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("set_timeScale");
+				if (method) return method->Invoke<void>(value);
 			}
 		};
 
