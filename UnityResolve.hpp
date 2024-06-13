@@ -154,24 +154,43 @@ public:
 
 	struct Field final {
 		void* address;
-		std::string  name;
+		std::string name;
 		Type* type;
 		Class* klass;
 		std::int32_t offset; // If offset is -1, then it's thread static
-		bool         static_field;
+		bool static_field;
 		void* vTable;
 
 		template <typename T>
-		auto SetValue(T* value) const -> void {
+		auto SetStaticValue(T* value) const -> void {
 			if (!static_field) return;
 			if (mode_ == Mode::Il2Cpp) return Invoke<void, void*, T*>("il2cpp_field_static_set_value", address, value);
 		}
 
 		template <typename T>
-		auto GetValue(T* value) const -> void {
+		auto GetStaticValue(T* value) const -> void {
 			if (!static_field) return;
 			if (mode_ == Mode::Il2Cpp) return Invoke<void, void*, T*>("il2cpp_field_static_get_value", address, value);
 		}
+
+		template <typename T, typename C>
+		struct Variable {
+		private:
+			std::int32_t offset;
+
+		public:
+			void Init(const Field* field) {
+				offset = field->offset;
+			}
+
+			T Get(C* obj) {
+				return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(obj) + offset);
+			}
+
+			void Set(C* obj, T value) {
+				return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(obj) + offset) = value;
+			}
+		};
 	};
 
 	struct Method final {
