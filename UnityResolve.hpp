@@ -188,7 +188,7 @@ public:
 			}
 
 			void Set(C* obj, T value) {
-				return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(obj) + offset) = value;
+				*reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(obj) + offset) = value;
 			}
 		};
 	};
