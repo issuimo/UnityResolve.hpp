@@ -1,4 +1,4 @@
-﻿#ifndef UNITYRESOLVE_HPP
+#ifndef UNITYRESOLVE_HPP
 #define UNITYRESOLVE_HPP
 
 #define WINDOWS_MODE 1 // 如果需要请改为 1 | 1 if you need
@@ -18,8 +18,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#include "UnityResolve.hpp"
 
 #if WINDOWS_MODE
 #include <windows.h>
