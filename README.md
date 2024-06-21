@@ -128,10 +128,14 @@
 > 
 > method1->Invoke<int>(114, 514, "114514");
 > // Invoke<return type>(args...);
-> 
-> const auto ptr = method2->Cast<void, int, bool>();
+>
 > // Cast<return type, args...>(void);
+> // Cast(IM::MethodPointer<return type, args...>&);
+> const IM::MethodPointer<void, int, bool> ptr = method2->Cast<void, int, bool>();
 > ptr(114514, true);
+> IM::MethodPointer<void, int, bool> add;
+> ptr = method1->Cast(add);
+>
 > ```
 
 #### 转存储到文件 (DumpToFile)
