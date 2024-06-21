@@ -1,4 +1,4 @@
-#ifndef UNITYRESOLVE_HPP
+﻿#ifndef UNITYRESOLVE_HPP
 #define UNITYRESOLVE_HPP
 
 #define WINDOWS_MODE 1 // 如果需要请改为 1 | 1 if you need
@@ -18,6 +18,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "UnityResolve.hpp"
 
 #if WINDOWS_MODE
 #include <windows.h>
@@ -260,6 +262,17 @@ public:
 			if (!this) return nullptr;
 			Compile();
 			if (function) return reinterpret_cast<MethodPointer<Return, Args...>>(function);
+			return nullptr;
+		}
+
+		template <typename Return, typename... Args>
+		auto Cast(MethodPointer<Return, Args...>& ptr) -> MethodPointer<Return, Args...> {
+			if (!this) return nullptr;
+			Compile();
+			if (function) {
+				ptr = reinterpret_cast<MethodPointer<Return, Args...>>(function);
+				return reinterpret_cast<MethodPointer<Return, Args...>>(function);
+			}
 			return nullptr;
 		}
 	};
@@ -809,6 +822,7 @@ public:
 		struct EventInfo;
 		struct MemberInfo;
 		struct Time;
+		struct RaycastHit;
 
 		struct Vector3 {
 			float x, y, z;
@@ -943,55 +957,55 @@ public:
 				return std::sqrt(dx * dx + dy * dy);
 			}
 
-			auto operator*(const float x) -> Vector2 {
+			auto operator*(float x) -> Vector2 {
 				this->x *= x;
 				this->y *= x;
 				return *this;
 			}
 
-			auto operator/(const float x) -> Vector2 {
+			auto operator/(float x) -> Vector2 {
 				this->x /= x;
 				this->y /= x;
 				return *this;
 			}
 
-			auto operator+(const float x) -> Vector2 {
+			auto operator+(float x) -> Vector2 {
 				this->x += x;
 				this->y += x;
 				return *this;
 			}
 
-			auto operator-(const float x) -> Vector2 {
+			auto operator-(float x) -> Vector2 {
 				this->x -= x;
 				this->y -= x;
 				return *this;
 			}
 
-			auto operator*(const Vector2 x) -> Vector2 {
+			auto operator*(Vector2 x) -> Vector2 {
 				this->x *= x.x;
 				this->y *= x.y;
 				return *this;
 			}
 
-			auto operator-(const Vector2 x) -> Vector2 {
+			auto operator-(Vector2 x) -> Vector2 {
 				this->x -= x.x;
 				this->y -= x.y;
 				return *this;
 			}
 
-			auto operator+(const Vector2 x) -> Vector2 {
+			auto operator+(Vector2 x) -> Vector2 {
 				this->x += x.x;
 				this->y += x.y;
 				return *this;
 			}
 
-			auto operator/(const Vector2 x) -> Vector2 {
+			auto operator/(Vector2 x) -> Vector2 {
 				this->x /= x.x;
 				this->y /= x.y;
 				return *this;
 			}
 
-			auto operator ==(const Vector2 x) const -> bool { return this->x == x.x && this->y == x.y; }
+			auto operator ==(Vector2 x) const -> bool { return this->x == x.x && this->y == x.y; }
 		};
 
 		struct Vector4 {
@@ -1220,6 +1234,11 @@ public:
 		struct Ray {
 			Vector3 m_vOrigin;
 			Vector3 m_vDirection;
+		};
+
+		struct RaycastHit {
+			Vector3 m_Point;
+			Vector3 m_Normal;
 		};
 
 		struct Rect {
@@ -1813,11 +1832,11 @@ public:
 			wchar_t m_firstChar[32]{};
 
 			[[nodiscard]] auto ToString() const -> std::string {
+				if (!this) return {};
 #if WINDOWS_MODE
 				if (IsBadReadPtr(this, sizeof(String))) return {};
-				if (IsBadReadPtr(m_firstChar, m_stringLength)) return {};
+				if (IsBadReadPtr(m_firstChar, 1)) return {};
 #endif
-				if (!this) return {};
 				using convert_typeX = std::codecvt_utf8<wchar_t>;
 				std::wstring_convert<convert_typeX> converterX;
 				return converterX.to_bytes(m_firstChar);
@@ -1905,6 +1924,7 @@ public:
 			auto ToVector() -> std::vector<T> {
 #if WINDOWS_MODE
 				if (IsBadReadPtr(this, sizeof(Array))) return {};
+				if (IsBadReadPtr(vector, sizeof(void*))) return {};
 #endif
 				if (!this) return {};
 				std::vector<T> rs{};
@@ -2836,8 +2856,15 @@ public:
 
 			static auto Raycast(const Vector3& origin, const Vector3& direction, const float maxDistance) -> bool {
 				static Method* method;
-				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Raycast", { "*", "*", "*" });
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Raycast", { "UnityEngine.Vector3", "UnityEngine.Vector3", "System.Single" });
 				if (method) return method->Invoke<bool>(origin, direction, maxDistance);
+				return false;
+			}
+
+			static auto Raycast(const Ray& origin, const RaycastHit* direction, const float maxDistance) -> bool {
+				static Method* method;
+				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Physics")->Get<Method>("Raycast", { "UnityEngine.Ray", "UnityEngine.RaycastHit&", "System.Single" });
+				if (method) return method->Invoke<bool, Ray>(origin, direction, maxDistance);
 				return false;
 			}
 
