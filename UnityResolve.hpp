@@ -2037,7 +2037,7 @@ public:
 				TKey tKey = { 0 };
 
 				Entry* pEntry = GetEntry();
-				if (pEntry) tKey = pEntry[iIndex].m_tKey;
+				if (pEntry) tKey = pEntry[iIndex].tKey;
 
 				return tKey;
 			}
@@ -2046,14 +2046,14 @@ public:
 				TValue tValue = { 0 };
 
 				Entry* pEntry = GetEntry();
-				if (pEntry) tValue = pEntry[iIndex].m_tValue;
+				if (pEntry) tValue = pEntry[iIndex].tValue;
 
 				return tValue;
 			}
 
 			auto GetValueByKey(const TKey tKey) -> TValue {
 				TValue tValue = { 0 };
-				for (auto i = 0; i < iCount; i++) if (GetEntry()[i].m_tKey == tKey) tValue = GetEntry()[i].m_tValue;
+				for (auto i = 0; i < iCount; i++) if (GetEntry()[i].tKey == tKey) tValue = GetEntry()[i].tValue;
 				return tValue;
 			}
 
