@@ -57,7 +57,7 @@ public:
 		std::vector<Class*> classes;
 
 		[[nodiscard]] auto Get(const std::string& strClass, const std::string& strNamespace = "*", const std::string& strParent = "*") const -> Class* {
-			if (!this) return nullptr;
+			
 			for (const auto pClass : classes) if (strClass == pClass->name && (strNamespace == "*" || pClass->namespaze == strNamespace) && (strParent == "*" || pClass->parent == strParent)) return pClass;
 			return nullptr;
 		}
@@ -86,7 +86,7 @@ public:
 
 		template <typename RType>
 		auto Get(const std::string& name, const std::vector<std::string>& args = {}) -> RType* {
-			if (!this) return nullptr;
+			
 			if constexpr (std::is_same_v<RType, Field>) for (auto pField : fields) if (pField->name == name) return static_cast<RType*>(pField);
 			if constexpr (std::is_same_v<RType, std::int32_t>) for (const auto pField : fields) if (pField->name == name) return reinterpret_cast<RType*>(pField->offset);
 			if constexpr (std::is_same_v<RType, Method>) {
@@ -174,7 +174,7 @@ public:
 		template <typename T, typename C>
 		struct Variable {
 		private:
-			std::int32_t offset;
+			std::int32_t offset{0};
 
 		public:
 			void Init(const Field* field) {
@@ -187,6 +187,10 @@ public:
 
 			void Set(C* obj, T value) {
 				*reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(obj) + offset) = value;
+			}
+
+			T& operator[](C* obj) {
+				return *reinterpret_cast<T*>(offset + reinterpret_cast<std::uintptr_t>(obj));
 			}
 		};
 	};
@@ -206,18 +210,13 @@ public:
 		};
 
 		std::vector<Arg*> args;
-
-	private:
-		bool badPtr{ false };
-
 	public:
 		template <typename Return, typename... Args>
 		auto Invoke(Args... args) -> Return {
-			if (!this) return Return();
+			
 			Compile();
 #if WINDOWS_MODE
-			if (!badPtr) badPtr = !IsBadCodePtr(reinterpret_cast<FARPROC>(function));
-			if (function && badPtr) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
+			if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
 #else
 			if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
 #endif
@@ -225,13 +224,13 @@ public:
 		}
 
 		auto Compile() -> void {
-			if (!this) return;
+			
 			if (address && !function && mode_ == Mode::Mono) function = UnityResolve::Invoke<void*>("mono_compile_method", address);
 		}
 
 		template <typename Return, typename Obj, typename... Args>
 		auto RuntimeInvoke(Obj* obj, Args... args) -> Return {
-			if (!this) return Return();
+			
 			void* exc{};
 			void* argArray[sizeof...(Args) + 1];
 			if (sizeof...(Args) > 0) {
@@ -243,13 +242,15 @@ public:
 				if constexpr (std::is_void_v<Return>) {
 					UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc);
 					return;
-				} else return *static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc));
+				}
+				else return *static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc));
 			}
 
 			if constexpr (std::is_void_v<Return>) {
 				UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc);
 				return;
-			} else return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
+			}
+			else return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
 		}
 
 		template <typename Return, typename... Args>
@@ -257,7 +258,7 @@ public:
 
 		template <typename Return, typename... Args>
 		auto Cast() -> MethodPointer<Return, Args...> {
-			if (!this) return nullptr;
+			
 			Compile();
 			if (function) return reinterpret_cast<MethodPointer<Return, Args...>>(function);
 			return nullptr;
@@ -265,7 +266,7 @@ public:
 
 		template <typename Return, typename... Args>
 		auto Cast(MethodPointer<Return, Args...>& ptr) -> MethodPointer<Return, Args...> {
-			if (!this) return nullptr;
+			
 			Compile();
 			if (function) {
 				ptr = reinterpret_cast<MethodPointer<Return, Args...>>(function);
@@ -309,7 +310,7 @@ public:
 
 			if (Get("UnityEngine.dll") && (!Get("UnityEngine.CoreModule.dll") || !Get("UnityEngine.PhysicsModule.dll"))) {
 				// 兼容某些游戏 (如生死狙击2)
-				for (const std::vector<std::string> names = { "UnityEngine.CoreModule.dll", "UnityEngine.PhysicsModule.dll" }; const auto name : names) {
+				for (const std::vector<std::string> names = { "UnityEngine.CoreModule.dll", "UnityEngine.PhysicsModule.dll" }; const auto& name : names) {
 					const auto ass = Get("UnityEngine.dll");
 					const auto assembly = new Assembly{ .address = ass->address, .name = name, .file = ass->file, .classes = ass->classes };
 					UnityResolve::assembly.push_back(assembly);
@@ -533,7 +534,8 @@ public:
 		if (address_[funcName] != nullptr) {
 			try {
 				return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(address_[funcName])(args...);
-			} catch (...) {
+			}
+			catch (...) {
 				return Return();
 			}
 		}
@@ -577,7 +579,8 @@ private:
 						assembly->name = Invoke<const char*>("mono_image_get_name", image);
 						assembly->name += ".dll";
 						v.push_back(assembly);
-					} catch (...) {
+					}
+					catch (...) {
 						return;
 					}
 
@@ -604,7 +607,7 @@ private:
 				ForeachFields(pAClass, pClass);
 				ForeachMethod(pAClass, pClass);
 
-				void* i_class{};
+				void* i_class;
 				void* iter{};
 				do {
 					if ((i_class = Invoke<void*>("il2cpp_class_get_interfaces", pClass, &iter))) {
@@ -629,14 +632,15 @@ private:
 						if (const auto pPClass = Invoke<void*>("mono_class_get_parent", pClass)) pAClass->parent = Invoke<const char*>("mono_class_get_name", pPClass);
 						pAClass->namespaze = Invoke<const char*>("mono_class_get_namespace", pClass);
 						assembly->classes.push_back(pAClass);
-					} catch (...) {
+					}
+					catch (...) {
 						return;
 					}
 
 					ForeachFields(pAClass, pClass);
 					ForeachMethod(pAClass, pClass);
 
-					void* iClass{};
+					void* iClass;
 					void* iiter{};
 
 					do {
@@ -645,12 +649,14 @@ private:
 								ForeachFields(pAClass, iClass);
 								ForeachMethod(pAClass, iClass);
 							}
-						} catch (...) {
+						}
+						catch (...) {
 							return;
 						}
 					} while (iClass);
 				}
-			} catch (...) {}
+			}
+			catch (...) {}
 		}
 	}
 
@@ -662,7 +668,6 @@ private:
 			do {
 				if ((field = Invoke<void*>("il2cpp_class_get_fields", pKlass, &iter))) {
 					const auto pField = new Field{ .address = field, .name = Invoke<const char*>("il2cpp_field_get_name", field), .type = new Type{.address = Invoke<void*>("il2cpp_field_get_type", field)}, .klass = klass, .offset = Invoke<int>("il2cpp_field_get_offset", field), .static_field = false, .vTable = nullptr };
-					int        tSize{};
 					pField->static_field = pField->offset <= 0;
 					pField->type->name = Invoke<const char*>("il2cpp_type_get_name", pField->type->address);
 					pField->type->size = -1;
@@ -683,7 +688,8 @@ private:
 						pField->type->size = Invoke<int>("mono_type_size", pField->type->address, &tSize);
 						klass->fields.push_back(pField);
 					}
-				} catch (...) {
+				}
+				catch (...) {
 					return;
 				}
 			} while (field);
@@ -705,7 +711,6 @@ private:
 					pMethod->return_type = new Type{ .address = Invoke<void*>("il2cpp_method_get_return_type", method), };
 					pMethod->flags = Invoke<int>("il2cpp_method_get_flags", method, &fFlags);
 
-					int tSize{};
 					pMethod->static_function = pMethod->flags & 0x10;
 					pMethod->return_type->name = Invoke<const char*>("il2cpp_type_get_name", pMethod->return_type->address);
 					pMethod->return_type->size = -1;
@@ -739,7 +744,8 @@ private:
 							klass->methods.push_back(pMethod);
 							names = new char* [Invoke<int>("mono_signature_get_param_count", signature)];
 							Invoke<void>("mono_method_get_param_names", method, names);
-						} catch (...) {
+						}
+						catch (...) {
 							return;
 						}
 
@@ -752,17 +758,20 @@ private:
 									int t_size{};
 									try {
 										pMethod->args.push_back(new Method::Arg{ names[iname], new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size)} });
-									} catch (...) {
+									}
+									catch (...) {
 										// USE SEH!!!
 									}
 									iname++;
 								}
-							} catch (...) {
+							}
+							catch (...) {
 								return;
 							}
 						} while (mType);
 					}
-				} catch (...) {
+				}
+				catch (...) {
 					return;
 				}
 			} while (method);
@@ -873,7 +882,7 @@ public:
 				}
 			}
 
-			[[nodiscard]] auto Distance(const Vector3& event) const -> float {
+			[[nodiscard]] auto Distance(Vector3& event) const -> float {
 				const auto dx = this->x - event.x;
 				const auto dy = this->y - event.y;
 				const auto dz = this->z - event.z;
@@ -955,55 +964,55 @@ public:
 				return std::sqrt(dx * dx + dy * dy);
 			}
 
-			auto operator*(float x) -> Vector2 {
+			auto operator*(const float x) -> Vector2 {
 				this->x *= x;
 				this->y *= x;
 				return *this;
 			}
 
-			auto operator/(float x) -> Vector2 {
+			auto operator/(const float x) -> Vector2 {
 				this->x /= x;
 				this->y /= x;
 				return *this;
 			}
 
-			auto operator+(float x) -> Vector2 {
+			auto operator+(const float x) -> Vector2 {
 				this->x += x;
 				this->y += x;
 				return *this;
 			}
 
-			auto operator-(float x) -> Vector2 {
+			auto operator-(const float x) -> Vector2 {
 				this->x -= x;
 				this->y -= x;
 				return *this;
 			}
 
-			auto operator*(Vector2 x) -> Vector2 {
+			auto operator*(const Vector2 x) -> Vector2 {
 				this->x *= x.x;
 				this->y *= x.y;
 				return *this;
 			}
 
-			auto operator-(Vector2 x) -> Vector2 {
+			auto operator-(const Vector2 x) -> Vector2 {
 				this->x -= x.x;
 				this->y -= x.y;
 				return *this;
 			}
 
-			auto operator+(Vector2 x) -> Vector2 {
+			auto operator+(const Vector2 x) -> Vector2 {
 				this->x += x.x;
 				this->y += x.y;
 				return *this;
 			}
 
-			auto operator/(Vector2 x) -> Vector2 {
+			auto operator/(const Vector2 x) -> Vector2 {
 				this->x /= x.x;
 				this->y /= x.y;
 				return *this;
 			}
 
-			auto operator ==(Vector2 x) const -> bool { return this->x == x.x && this->y == x.y; }
+			auto operator ==(const Vector2 x) const -> bool { return this->x == x.x && this->y == x.y; }
 		};
 
 		struct Vector4 {
@@ -1152,6 +1161,14 @@ public:
 				return m_vEuler;
 			}
 
+			static auto LookRotation(const Vector3& forward) -> Quaternion {
+				static Method* method;
+
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Quaternion")->Get<Method>("LookRotation", { "UnityEngine.Vector3" });
+				if (method) return method->Invoke<Quaternion, Vector3>(forward);
+				return {};
+			}
+
 			auto operator*(const float x) -> Quaternion {
 				this->x *= x;
 				this->y *= x;
@@ -1283,7 +1300,7 @@ public:
 			struct MonitorData* monitor{ nullptr };
 
 			auto GetType() -> CsType* {
-				if (!this) return nullptr;
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Object", "System")->Get<Method>("GetType");
 				if (method) return method->Invoke<CsType*>(this);
@@ -1291,7 +1308,7 @@ public:
 			}
 
 			auto ToString() -> String* {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Object", "System")->Get<Method>("ToString");
 				if (method) return method->Invoke<String*>(this);
@@ -1299,7 +1316,7 @@ public:
 			}
 
 			int GetHashCode() {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Object", "System")->Get<Method>("GetHashCode");
 				if (method) return method->Invoke<int>(this);
@@ -1308,145 +1325,69 @@ public:
 		};
 
 		enum class BindingFlags : uint32_t {
-			/// <summary>Specifies no binding flag.</summary>
 			Default = 0,
-			/// <summary>Specifies that the case of the member name should not be considered when binding.</summary>
 			IgnoreCase = 1,
-			/// <summary>Specifies that only members declared at the level of the supplied type's hierarchy should be considered. Inherited members are not considered.</summary>
 			DeclaredOnly = 2,
-			/// <summary>Specifies that instance members are to be included in the search.</summary>
 			Instance = 4,
-			/// <summary>Specifies that static members are to be included in the search.</summary>
 			Static = 8,
-			/// <summary>Specifies that public members are to be included in the search.</summary>
 			Public = 16,
-			/// <summary>Specifies that non-public members are to be included in the search.</summary>
 			NonPublic = 32,
-			/// <summary>Specifies that public and protected static members up the hierarchy should be returned. Private static members in inherited classes are not returned. Static members include fields, methods, events, and properties. Nested types are not returned.</summary>
 			FlattenHierarchy = 64,
-			/// <summary>Specifies that a method is to be invoked. This must not be a constructor or a type initializer.</summary>
 			InvokeMethod = 256,
-			/// <summary>Specifies that Reflection should create an instance of the specified type. Calls the constructor that matches the given arguments. The supplied member name is ignored. If the type of lookup is not specified, (Instance | Public) will apply. It is not possible to call a type initializer.</summary>
 			CreateInstance = 512,
-			/// <summary>Specifies that the value of the specified field should be returned.</summary>
 			GetField = 1024,
-			/// <summary>Specifies that the value of the specified field should be set.</summary>
 			SetField = 2048,
-			/// <summary>Specifies that the value of the specified property should be returned.</summary>
 			GetProperty = 4096,
-			/// <summary>Specifies that the value of the specified property should be set. For COM properties, specifying this binding flag is equivalent to specifying PutDispProperty and PutRefDispProperty.</summary>
 			SetProperty = 8192,
-			/// <summary>Specifies that the PROPPUT member on a COM object should be invoked. PROPPUT specifies a property-setting function that uses a value. Use PutDispProperty if a property has both PROPPUT and PROPPUTREF and you need to distinguish which one is called.</summary>
 			PutDispProperty = 16384,
-			/// <summary>Specifies that the PROPPUTREF member on a COM object should be invoked. PROPPUTREF specifies a property-setting function that uses a reference instead of a value. Use PutRefDispProperty if a property has both PROPPUT and PROPPUTREF and you need to distinguish which one is called.</summary>
 			PutRefDispProperty = 32768,
-			/// <summary>Specifies that types of the supplied arguments must exactly match the types of the corresponding formal parameters. Reflection throws an exception if the caller supplies a non-null Binder object, since that implies that the caller is supplying BindToXXX implementations that will pick the appropriate method.</summary>
 			ExactBinding = 65536,
-			/// <summary>Not implemented.</summary>
 			SuppressChangeType = 131072,
-			/// <summary>Returns the set of members whose parameter count matches the number of supplied arguments. This binding flag is used for methods with parameters that have default values and methods with variable arguments (varargs). This flag should only be used with <see cref="M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[],System.Reflection.ParameterModifier[],System.Globalization.CultureInfo,System.String[])" />.</summary>
 			OptionalParamBinding = 262144,
-			/// <summary>Used in COM interop to specify that the return value of the member can be ignored.</summary>
 			IgnoreReturn = 16777216,
 		};
 
 		enum class FieldAttributes : uint32_t {
-			/// <summary>Specifies the access level of a given field.</summary>
-			// Token: 0x04000C5C RID: 3164
 			FieldAccessMask = 7,
-			/// <summary>Specifies that the field cannot be referenced.</summary>
-			// Token: 0x04000C5D RID: 3165
 			PrivateScope = 0,
-			/// <summary>Specifies that the field is accessible only by the parent type.</summary>
-			// Token: 0x04000C5E RID: 3166
 			Private = 1,
-			/// <summary>Specifies that the field is accessible only by subtypes in this assembly.</summary>
-			// Token: 0x04000C5F RID: 3167
 			FamANDAssem = 2,
-			/// <summary>Specifies that the field is accessible throughout the assembly.</summary>
-			// Token: 0x04000C60 RID: 3168
 			Assembly = 3,
-			/// <summary>Specifies that the field is accessible only by type and subtypes.</summary>
-			// Token: 0x04000C61 RID: 3169
 			Family = 4,
-			/// <summary>Specifies that the field is accessible by subtypes anywhere, as well as throughout this assembly.</summary>
-			// Token: 0x04000C62 RID: 3170
 			FamORAssem = 5,
-			/// <summary>Specifies that the field is accessible by any member for whom this scope is visible.</summary>
-			// Token: 0x04000C63 RID: 3171
 			Public = 6,
-			/// <summary>Specifies that the field represents the defined type, or else it is per-instance.</summary>
-			// Token: 0x04000C64 RID: 3172
 			Static = 16,
-			/// <summary>Specifies that the field is initialized only, and can be set only in the body of a constructor. </summary>
-			// Token: 0x04000C65 RID: 3173
 			InitOnly = 32,
-			/// <summary>Specifies that the field's value is a compile-time (static or early bound) constant. Any attempt to set it throws <see cref="T:System.FieldAccessException" />.</summary>
-			// Token: 0x04000C66 RID: 3174
 			Literal = 64,
-			/// <summary>Specifies that the field does not have to be serialized when the type is remoted.</summary>
-			// Token: 0x04000C67 RID: 3175
 			NotSerialized = 128,
-			/// <summary>Specifies that the field has a relative virtual address (RVA). The RVA is the location of the method body in the current image, as an address relative to the start of the image file in which it is located.</summary>
-			// Token: 0x04000C68 RID: 3176
 			HasFieldRVA = 256,
-			/// <summary>Specifies a special method, with the name describing how the method is special.</summary>
-			// Token: 0x04000C69 RID: 3177
 			SpecialName = 512,
-			/// <summary>Specifies that the common language runtime (metadata internal APIs) should check the name encoding.</summary>
-			// Token: 0x04000C6A RID: 3178
 			RTSpecialName = 1024,
-			/// <summary>Specifies that the field has marshaling information.</summary>
-			// Token: 0x04000C6B RID: 3179
 			HasFieldMarshal = 4096,
-			/// <summary>Reserved for future use.</summary>
-			// Token: 0x04000C6C RID: 3180
 			PinvokeImpl = 8192,
-			/// <summary>Specifies that the field has a default value.</summary>
-			// Token: 0x04000C6D RID: 3181
 			HasDefault = 32768,
-			/// <summary>Reserved.</summary>
-			// Token: 0x04000C6E RID: 3182
 			ReservedMask = 38144
 		};
 
 		enum class MemberTypes : uint32_t {
-			/// <summary>Specifies that the member is a constructor, representing a <see cref="T:System.Reflection.ConstructorInfo" /> member. Hexadecimal value of 0x01.</summary>
-			// Token: 0x04000C8D RID: 3213
 			Constructor = 1,
-			/// <summary>Specifies that the member is an event, representing an <see cref="T:System.Reflection.EventInfo" /> member. Hexadecimal value of 0x02.</summary>
-			// Token: 0x04000C8E RID: 3214
 			Event = 2,
-			/// <summary>Specifies that the member is a field, representing a <see cref="T:System.Reflection.FieldInfo" /> member. Hexadecimal value of 0x04.</summary>
-			// Token: 0x04000C8F RID: 3215
 			Field = 4,
-			/// <summary>Specifies that the member is a method, representing a <see cref="T:System.Reflection.MethodInfo" /> member. Hexadecimal value of 0x08.</summary>
-			// Token: 0x04000C90 RID: 3216
 			Method = 8,
-			/// <summary>Specifies that the member is a property, representing a <see cref="T:System.Reflection.PropertyInfo" /> member. Hexadecimal value of 0x10.</summary>
-			// Token: 0x04000C91 RID: 3217
 			Property = 16,
-			/// <summary>Specifies that the member is a type, representing a <see cref="F:System.Reflection.MemberTypes.TypeInfo" /> member. Hexadecimal value of 0x20.</summary>
-			// Token: 0x04000C92 RID: 3218
 			TypeInfo = 32,
-			/// <summary>Specifies that the member is a custom member type. Hexadecimal value of 0x40.</summary>
-			// Token: 0x04000C93 RID: 3219
 			Custom = 64,
-			/// <summary>Specifies that the member is a nested type, extending <see cref="T:System.Reflection.MemberInfo" />.</summary>
-			// Token: 0x04000C94 RID: 3220
 			NestedType = 128,
-			/// <summary>Specifies all member types.</summary>
-			// Token: 0x04000C95 RID: 3221
 			All = 191
 		};
 
 		struct MemberInfo {
-			
+
 		};
 
 		struct FieldInfo : public MemberInfo {
 			auto GetIsInitOnly() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsInitOnly");
 				if (method) return method->Invoke<bool>(this);
@@ -1454,7 +1395,7 @@ public:
 			}
 
 			auto GetIsLiteral() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsLiteral");
 				if (method) return method->Invoke<bool>(this);
@@ -1462,7 +1403,7 @@ public:
 			}
 
 			auto GetIsNotSerialized() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsNotSerialized");
 				if (method) return method->Invoke<bool>(this);
@@ -1470,7 +1411,7 @@ public:
 			}
 
 			auto GetIsStatic() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsStatic");
 				if (method) return method->Invoke<bool>(this);
@@ -1478,7 +1419,7 @@ public:
 			}
 
 			auto GetIsFamily() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsFamily");
 				if (method) return method->Invoke<bool>(this);
@@ -1486,7 +1427,7 @@ public:
 			}
 
 			auto GetIsPrivate() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsPrivate");
 				if (method) return method->Invoke<bool>(this);
@@ -1494,7 +1435,7 @@ public:
 			}
 
 			auto GetIsPublic() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_IsPublic");
 				if (method) return method->Invoke<bool>(this);
@@ -1502,7 +1443,7 @@ public:
 			}
 
 			auto GetAttributes() -> FieldAttributes {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_Attributes");
 				if (method) return method->Invoke<FieldAttributes>(this);
@@ -1510,7 +1451,7 @@ public:
 			}
 
 			auto GetMemberType() -> MemberTypes {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("get_MemberType");
 				if (method) return method->Invoke<MemberTypes>(this);
@@ -1518,7 +1459,7 @@ public:
 			}
 
 			auto GetFieldOffset() -> int {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("GetFieldOffset");
 				if (method) return method->Invoke<int>(this);
@@ -1527,7 +1468,7 @@ public:
 
 			template<typename T>
 			auto GetValue(Object* object) -> T {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("GetValue");
 				if (method) return method->Invoke<T>(this, object);
@@ -1536,7 +1477,7 @@ public:
 
 			template<typename T>
 			auto SetValue(Object* object, T value) -> void {
-				if (!this) return;
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("FieldInfo", "System.Reflection", "MemberInfo")->Get<Method>("SetValue", { "System.Object", "System.Object" });
 				if (method) return method->Invoke<T>(this, object, value);
@@ -1545,7 +1486,7 @@ public:
 
 		struct CsType {
 			auto FormatTypeName() -> String* {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("FormatTypeName");
 				if (method) return method->Invoke<String*>(this);
@@ -1553,7 +1494,7 @@ public:
 			}
 
 			auto GetFullName() -> String* {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_FullName");
 				if (method) return method->Invoke<String*>(this);
@@ -1561,7 +1502,7 @@ public:
 			}
 
 			auto GetNamespace() -> String* {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_Namespace");
 				if (method) return method->Invoke<String*>(this);
@@ -1569,7 +1510,7 @@ public:
 			}
 
 			auto GetIsSerializable() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsSerializable");
 				if (method) return method->Invoke<bool>(this);
@@ -1577,7 +1518,7 @@ public:
 			}
 
 			auto GetContainsGenericParameters() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_ContainsGenericParameters");
 				if (method) return method->Invoke<bool>(this);
@@ -1585,7 +1526,7 @@ public:
 			}
 
 			auto GetIsVisible() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsVisible");
 				if (method) return method->Invoke<bool>(this);
@@ -1593,7 +1534,7 @@ public:
 			}
 
 			auto GetIsNested() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsNested");
 				if (method) return method->Invoke<bool>(this);
@@ -1601,7 +1542,7 @@ public:
 			}
 
 			auto GetIsArray() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsArray");
 				if (method) return method->Invoke<bool>(this);
@@ -1609,7 +1550,7 @@ public:
 			}
 
 			auto GetIsByRef() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsByRef");
 				if (method) return method->Invoke<bool>(this);
@@ -1617,7 +1558,7 @@ public:
 			}
 
 			auto GetIsPointer() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsPointer");
 				if (method) return method->Invoke<bool>(this);
@@ -1625,7 +1566,7 @@ public:
 			}
 
 			auto GetIsConstructedGenericType() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsConstructedGenericType");
 				if (method) return method->Invoke<bool>(this);
@@ -1633,7 +1574,7 @@ public:
 			}
 
 			auto GetIsGenericParameter() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsGenericParameter");
 				if (method) return method->Invoke<bool>(this);
@@ -1641,7 +1582,7 @@ public:
 			}
 
 			auto GetIsGenericMethodParameter() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsGenericMethodParameter");
 				if (method) return method->Invoke<bool>(this);
@@ -1649,7 +1590,7 @@ public:
 			}
 
 			auto GetIsGenericType() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsGenericType");
 				if (method) return method->Invoke<bool>(this);
@@ -1657,7 +1598,7 @@ public:
 			}
 
 			auto GetIsGenericTypeDefinition() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsGenericTypeDefinition");
 				if (method) return method->Invoke<bool>(this);
@@ -1665,7 +1606,7 @@ public:
 			}
 
 			auto GetIsSZArray() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsSZArray");
 				if (method) return method->Invoke<bool>(this);
@@ -1673,7 +1614,7 @@ public:
 			}
 
 			auto GetIsVariableBoundArray() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsVariableBoundArray");
 				if (method) return method->Invoke<bool>(this);
@@ -1681,7 +1622,7 @@ public:
 			}
 
 			auto GetHasElementType() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_HasElementType");
 				if (method) return method->Invoke<bool>(this);
@@ -1689,7 +1630,7 @@ public:
 			}
 
 			auto GetIsAbstract() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsAbstract");
 				if (method) return method->Invoke<bool>(this);
@@ -1697,7 +1638,7 @@ public:
 			}
 
 			auto GetIsSealed() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsSealed");
 				if (method) return method->Invoke<bool>(this);
@@ -1705,7 +1646,7 @@ public:
 			}
 
 			auto GetIsClass() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsClass");
 				if (method) return method->Invoke<bool>(this);
@@ -1713,7 +1654,7 @@ public:
 			}
 
 			auto GetIsNestedAssembly() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsNestedAssembly");
 				if (method) return method->Invoke<bool>(this);
@@ -1721,7 +1662,7 @@ public:
 			}
 
 			auto GetIsNestedPublic() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsNestedPublic");
 				if (method) return method->Invoke<bool>(this);
@@ -1729,7 +1670,7 @@ public:
 			}
 
 			auto GetIsNotPublic() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsNotPublic");
 				if (method) return method->Invoke<bool>(this);
@@ -1737,7 +1678,7 @@ public:
 			}
 
 			auto GetIsPublic() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsPublic");
 				if (method) return method->Invoke<bool>(this);
@@ -1745,7 +1686,7 @@ public:
 			}
 
 			auto GetIsExplicitLayout() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsExplicitLayout");
 				if (method) return method->Invoke<bool>(this);
@@ -1753,7 +1694,7 @@ public:
 			}
 
 			auto GetIsCOMObject() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsCOMObject");
 				if (method) return method->Invoke<bool>(this);
@@ -1761,7 +1702,7 @@ public:
 			}
 
 			auto GetIsContextful() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsContextful");
 				if (method) return method->Invoke<bool>(this);
@@ -1769,7 +1710,7 @@ public:
 			}
 
 			auto GetIsCollectible() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsCollectible");
 				if (method) return method->Invoke<bool>(this);
@@ -1777,7 +1718,7 @@ public:
 			}
 
 			auto GetIsEnum() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsEnum");
 				if (method) return method->Invoke<bool>(this);
@@ -1785,7 +1726,7 @@ public:
 			}
 
 			auto GetIsMarshalByRef() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsMarshalByRef");
 				if (method) return method->Invoke<bool>(this);
@@ -1793,7 +1734,7 @@ public:
 			}
 
 			auto GetIsPrimitive() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsPrimitive");
 				if (method) return method->Invoke<bool>(this);
@@ -1801,7 +1742,7 @@ public:
 			}
 
 			auto GetIsValueType() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsValueType");
 				if (method) return method->Invoke<bool>(this);
@@ -1809,15 +1750,15 @@ public:
 			}
 
 			auto GetIsSignatureType() -> bool {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("get_IsSignatureType");
 				if (method) return method->Invoke<bool>(this);
 				return false;
 			}
 
-			auto GetField(const std::string& name, BindingFlags flags = static_cast<BindingFlags>(static_cast<int>(BindingFlags::Instance) | static_cast<int>(BindingFlags::Static) | static_cast<int>(BindingFlags::Public))) -> FieldInfo* {
-				if (!this) return {};
+			auto GetField(const std::string& name, const BindingFlags flags = static_cast<BindingFlags>(static_cast<int>(BindingFlags::Instance) | static_cast<int>(BindingFlags::Static) | static_cast<int>(BindingFlags::Public))) -> FieldInfo* {
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("Type", "System", "MemberInfo")->Get<Method>("GetField", { "System.String name" });
 				if (method) return method->Invoke<FieldInfo*>(this, String::New(name), flags);
@@ -1830,13 +1771,7 @@ public:
 			wchar_t m_firstChar[32]{};
 
 			[[nodiscard]] auto ToString() const -> std::string {
-				if (!this) return {};
-#if WINDOWS_MODE
-				if (IsBadReadPtr(this, sizeof(String))) return {};
-				if (IsBadReadPtr(m_firstChar, 1)) return {};
-#endif
-				using convert_typeX = std::codecvt_utf8<wchar_t>;
-				std::wstring_convert<convert_typeX> converterX;
+				std::wstring_convert<std::codecvt_utf8<wchar_t>> converterX;
 				return converterX.to_bytes(m_firstChar);
 			}
 
@@ -1847,13 +1782,13 @@ public:
 			auto operator==(const std::wstring& newString) const -> bool { return Equals(newString); }
 
 			auto Clear() -> void {
-				if (!this) return;
+				
 				memset(m_firstChar, 0, m_stringLength);
 				m_stringLength = 0;
 			}
 
 			[[nodiscard]] auto Equals(const std::wstring& newString) const -> bool {
-				if (!this) return false;
+				
 				if (newString.size() != m_stringLength) return false;
 				if (std::memcmp(newString.data(), m_firstChar, m_stringLength) != 0) return false;
 				return true;
@@ -1924,7 +1859,7 @@ public:
 				if (IsBadReadPtr(this, sizeof(Array))) return {};
 				if (IsBadReadPtr(vector, sizeof(void*))) return {};
 #endif
-				if (!this) return {};
+				
 				std::vector<T> rs{};
 				rs.reserve(this->max_length);
 				for (auto i = 0; i < this->max_length; i++) rs.push_back(this->At(i));
@@ -1956,19 +1891,20 @@ public:
 				auto pList = new List<Type>();
 				pList->pList = Array<Type>::New(kalss, size);
 				pList->size = size;
+				return pList;
 			}
 
 			auto operator[](const unsigned int m_uIndex) -> Type& { return pList->At(m_uIndex); }
 
 			auto Add(Type pDate) -> void {
-				if (!this) return;
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("Add");
 				if (method) return method->Invoke<void>(this, pDate);
 			}
 
 			auto Remove(Type pDate) -> bool {
-				if (!this) return false;
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("Remove");
 				if (method) return method->Invoke<bool>(this, pDate);
@@ -1976,21 +1912,21 @@ public:
 			}
 
 			auto RemoveAt(int index) -> void {
-				if (!this) return;
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("RemoveAt");
 				if (method) return method->Invoke<void>(this, index);
 			}
 
 			auto ForEach(void(*action)(Type pDate)) -> void {
-				if (!this) return;
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("ForEach");
 				if (method) return method->Invoke<void>(this, action);
 			}
 
 			auto GetRange(int index, int count) -> List* {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("GetRange");
 				if (method) return method->Invoke<List*>(this, index, count);
@@ -1998,14 +1934,14 @@ public:
 			}
 
 			auto Clear() -> void {
-				if (!this) return;
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("Clear");
 				if (method) return method->Invoke<void>(this);
 			}
 
 			auto Sort(int (*comparison)(Type* pX, Type* pY)) -> void {
-				if (!this) return;
+				
 				static Method* method;
 				if (!method) method = Get("mscorlib.dll")->Get("List`1")->Get<Method>("Sort", { "*" });
 				if (method) return method->Invoke<void>(this, comparison);
@@ -2031,7 +1967,7 @@ public:
 			void* pKeys;
 			void* pValues;
 
-			auto GetEntry() -> Entry* { return static_cast<Entry*>(pEntries->GetData()); }
+			auto GetEntry() -> Entry* { return reinterpret_cast<Entry*>(pEntries->GetData()); }
 
 			auto GetKeyByIndex(const int iIndex) -> TKey {
 				TKey tKey = { 0 };
@@ -2064,7 +2000,7 @@ public:
 			void* m_CachedPtr;
 
 			auto GetName() -> String* {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("get_name");
 				if (method) return method->Invoke<String*>(this);
@@ -2072,7 +2008,7 @@ public:
 			}
 
 			auto ToString() -> String* {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("ToString");
 				if (method) return method->Invoke<String*>(this);
@@ -2105,7 +2041,7 @@ public:
 
 		struct Component : public UnityObject {
 			auto GetTransform() -> Transform* {
-				if (!this) return nullptr;
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_transform");
 				if (method) return method->Invoke<Transform*>(this);
@@ -2113,7 +2049,7 @@ public:
 			}
 
 			auto GetGameObject() -> GameObject* {
-				if (!this) return nullptr;
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_gameObject");
 				if (method) return method->Invoke<GameObject*>(this);
@@ -2121,7 +2057,7 @@ public:
 			}
 
 			auto GetTag() -> String* {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("get_tag");
 				if (method) return method->Invoke<String*>(this);
@@ -2130,7 +2066,7 @@ public:
 
 			template <typename T>
 			auto GetComponentsInChildren() -> std::vector<T> {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren");
 				if (method) return method->Invoke<Array<T>*>(this)->ToVector();
@@ -2140,7 +2076,7 @@ public:
 			template <typename T>
 			auto GetComponentsInChildren(Class* pClass) -> std::vector<T> {
 				static Method* method;
-				if (!this) return {};
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInChildren", { "System.Type" });
 				if (method) return method->Invoke<Array<T>*>(this, pClass->GetType())->ToVector();
 				return {};
@@ -2158,7 +2094,7 @@ public:
 			auto GetComponents(Class* pClass) -> std::vector<T> {
 				static Method* method;
 				static void* obj;
-				if (!this) return std::vector<T>();
+				
 				if (!method || !obj) {
 					method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponents", { "System.Type" });
 					obj = pClass->GetType();
@@ -2179,7 +2115,7 @@ public:
 			auto GetComponentsInParent(Class* pClass) -> std::vector<T> {
 				static Method* method;
 				static void* obj;
-				if (!this) return std::vector<T>();
+				
 				if (!method || !obj) {
 					method = Get("UnityEngine.CoreModule.dll")->Get("Component")->Get<Method>("GetComponentsInParent", { "System.Type" });
 					obj = pClass->GetType();
@@ -2254,7 +2190,7 @@ public:
 			}
 
 			auto GetDepth() -> float {
-				if (!this) return 0.0f;
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("get_depth");
 				if (method) return method->Invoke<float>(this);
@@ -2262,21 +2198,21 @@ public:
 			}
 
 			auto SetDepth(const float depth) -> void {
-				if (!this) return;
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("set_depth", { "*" });
 				if (method) return method->Invoke<void>(this, depth);
 			}
 
 			auto SetFoV(const float fov) -> void {
-				if (!this) return;
+				
 				static Method* method_fieldOfView;
 				if (!method_fieldOfView) method_fieldOfView = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("set_fieldOfView", { "*" });
 				if (method_fieldOfView) return method_fieldOfView->Invoke<void>(this, fov);
 			}
 
 			auto GetFoV() -> float {
-				if (!this) return 0.0f;
+				
 				static Method* method_fieldOfView;
 				if (!method_fieldOfView) method_fieldOfView = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("get_fieldOfView");
 				if (method_fieldOfView) return method_fieldOfView->Invoke<float>(this);
@@ -2284,7 +2220,7 @@ public:
 			}
 
 			auto WorldToScreenPoint(const Vector3& position, const Eye eye = Eye::Mono) -> Vector3 {
-				if (!this) return { -100, -100, -100 };
+				
 				static Method* method;
 				if (!method) {
 					if (mode_ == Mode::Mono) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>("WorldToScreenPoint_Injected");
@@ -2300,7 +2236,7 @@ public:
 			}
 
 			auto ScreenToWorldPoint(const Vector3& position, const Eye eye = Eye::Mono) -> Vector3 {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>(mode_ == Mode::Mono ? "ScreenToWorldPoint_Injected" : "ScreenToWorldPoint");
 				if (mode_ == Mode::Mono && method) {
@@ -2313,7 +2249,7 @@ public:
 			}
 
 			auto CameraToWorldMatrix() -> Matrix4x4 {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>(mode_ == Mode::Mono ? "get_cameraToWorldMatrix_Injected" : "get_cameraToWorldMatrix");
 				if (mode_ == Mode::Mono && method) {
@@ -2329,7 +2265,7 @@ public:
 		struct Transform : Component {
 			auto GetPosition() -> Vector3 {
 				static Method* method;
-				if (!this) return {};
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_position_Injected" : "get_position");
 				if (mode_ == Mode::Mono && method) {
 					const Vector3 vec3{};
@@ -2342,7 +2278,7 @@ public:
 
 			auto SetPosition(const Vector3& position) -> void {
 				static Method* method;
-				if (!this) return;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_position_Injected" : "set_position");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
@@ -2350,7 +2286,7 @@ public:
 
 			auto GetRight() -> Vector3 {
 				static Method* method;
-				if (!this) return {};
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_right");
 				if (method) return method->Invoke<Vector3>(this);
 				return {};
@@ -2358,14 +2294,14 @@ public:
 
 			auto SetRight(const Vector3& value) -> void {
 				static Method* method;
-				if (!this) return;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("set_right");
 				if (method) return method->Invoke<void>(this, value);
 			}
 
 			auto GetUp() -> Vector3 {
 				static Method* method;
-				if (!this) return {};
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_up");
 				if (method) return method->Invoke<Vector3>(this);
 				return {};
@@ -2373,14 +2309,14 @@ public:
 
 			auto SetUp(const Vector3& value) -> void {
 				static Method* method;
-				if (!this) return;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("set_up");
 				if (method) return method->Invoke<void>(this, value);
 			}
 
 			auto GetForward() -> Vector3 {
 				static Method* method;
-				if (!this) return {};
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_forward");
 				if (method) return method->Invoke<Vector3>(this);
 				return {};
@@ -2388,14 +2324,14 @@ public:
 
 			auto SetForward(const Vector3& value) -> void {
 				static Method* method;
-				if (!this) return;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("set_forward");
 				if (method) return method->Invoke<void>(this, value);
 			}
 
 			auto GetRotation() -> Quaternion {
 				static Method* method;
-				if (!this) return {};
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_rotation_Injected" : "get_rotation");
 				if (mode_ == Mode::Mono && method) {
 					const Quaternion vec3{};
@@ -2408,7 +2344,7 @@ public:
 
 			auto SetRotation(const Quaternion& position) -> void {
 				static Method* method;
-				if (!this) return;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_rotation_Injected" : "set_rotation");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
@@ -2416,7 +2352,7 @@ public:
 
 			auto GetLocalPosition() -> Vector3 {
 				static Method* method;
-				if (!this) return {};
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_localPosition_Injected" : "get_localPosition");
 				if (mode_ == Mode::Mono && method) {
 					const Vector3 vec3{};
@@ -2429,7 +2365,7 @@ public:
 
 			auto SetLocalPosition(const Vector3& position) -> void {
 				static Method* method;
-				if (!this) return;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_localPosition_Injected" : "set_localPosition");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
@@ -2437,7 +2373,7 @@ public:
 
 			auto GetLocalRotation() -> Quaternion {
 				static Method* method;
-				if (!this) return {};
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_localRotation_Injected" : "get_localRotation");
 				if (mode_ == Mode::Mono && method) {
 					const Quaternion vec3{};
@@ -2450,7 +2386,7 @@ public:
 
 			auto SetLocalRotation(const Quaternion& position) -> void {
 				static Method* method;
-				if (!this) return;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_localRotation_Injected" : "set_localRotation");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
@@ -2458,7 +2394,7 @@ public:
 
 			auto GetLocalScale() -> Vector3 {
 				static Method* method;
-				if (!this) return {};
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_localScale_Injected" : "get_localScale");
 				if (mode_ == Mode::Mono && method) {
 					const Vector3 vec3{};
@@ -2471,7 +2407,7 @@ public:
 
 			auto SetLocalScale(const Vector3& position) -> void {
 				static Method* method;
-				if (!this) return;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_localScale_Injected" : "set_localScale");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
 				if (method) return method->Invoke<void>(this, position);
@@ -2479,7 +2415,7 @@ public:
 
 			auto GetChildCount() -> int {
 				static Method* method;
-				if (!this) return 0;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_childCount");
 				if (method) return method->Invoke<int>(this);
 				return 0;
@@ -2487,7 +2423,7 @@ public:
 
 			auto GetChild(const int index) -> Transform* {
 				static Method* method;
-				if (!this) return nullptr;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("GetChild");
 				if (method) return method->Invoke<Transform*>(this, index);
 				return nullptr;
@@ -2495,7 +2431,7 @@ public:
 
 			auto GetRoot() -> Transform* {
 				static Method* method;
-				if (!this) return nullptr;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("GetRoot");
 				if (method) return method->Invoke<Transform*>(this);
 				return nullptr;
@@ -2503,7 +2439,7 @@ public:
 
 			auto GetParent() -> Transform* {
 				static Method* method;
-				if (!this) return nullptr;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("GetParent");
 				if (method) return method->Invoke<Transform*>(this);
 				return nullptr;
@@ -2511,7 +2447,7 @@ public:
 
 			auto GetLossyScale() -> Vector3 {
 				static Method* method;
-				if (!this) return {};
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_lossyScale_Injected" : "get_lossyScale");
 				if (mode_ == Mode::Mono && method) {
 					const Vector3 vec3{};
@@ -2524,7 +2460,7 @@ public:
 
 			auto TransformPoint(const Vector3& position) -> Vector3 {
 				static Method* method;
-				if (!this) return {};
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "TransformPoint_Injected" : "TransformPoint");
 				if (mode_ == Mode::Mono && method) {
 					const Vector3 vec3{};
@@ -2537,14 +2473,14 @@ public:
 
 			auto LookAt(const Vector3& worldPosition) -> void {
 				static Method* method;
-				if (!this) return;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("LookAt", { "Vector3" });
 				if (method) return method->Invoke<void>(this, worldPosition);
 			}
 
 			auto Rotate(const Vector3& eulers) -> void {
 				static Method* method;
-				if (!this) return;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("Rotate", { "Vector3" });
 				if (method) return method->Invoke<void>(this, eulers);
 			}
@@ -2577,22 +2513,22 @@ public:
 
 			auto GetActive() -> bool {
 				static Method* method;
-				if (!this) return false;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_active");
 				if (method) return method->Invoke<bool>(this);
 				return false;
 			}
 
-			auto SetActive(bool value) -> void {
+			auto SetActive(const bool value) -> void {
 				static Method* method;
-				if (!this) return;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("set_active");
 				if (method) return method->Invoke<void>(this, value);
 			}
 
 			auto GetActiveSelf() -> bool {
 				static Method* method;
-				if (!this) return false;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_activeSelf");
 				if (method) return method->Invoke<bool>(this);
 				return false;
@@ -2600,7 +2536,7 @@ public:
 
 			auto GetActiveInHierarchy() -> bool {
 				static Method* method;
-				if (!this) return false;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_activeInHierarchy");
 				if (method) return method->Invoke<bool>(this);
 				return false;
@@ -2608,7 +2544,7 @@ public:
 
 			auto GetIsStatic() -> bool {
 				static Method* method;
-				if (!this) return false;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_isStatic");
 				if (method) return method->Invoke<bool>(this);
 				return false;
@@ -2616,14 +2552,14 @@ public:
 
 			auto GetTransform() -> Transform* {
 				static Method* method;
-				if (!this) return nullptr;
+				
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_transform");
 				if (method) return method->Invoke<Transform*>(this);
 				return nullptr;
 			}
 
 			auto GetTag() -> String* {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("get_tag");
 				if (method) return method->Invoke<String*>(this);
@@ -2632,7 +2568,7 @@ public:
 
 			template <typename T>
 			auto GetComponent() -> T {
-				if (!this) return T();
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent");
 				if (method) return method->Invoke<T>(this);
@@ -2641,7 +2577,7 @@ public:
 
 			template <typename T>
 			auto GetComponent(Class* type) -> T {
-				if (!this) return T();
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponent", { "System.Type" });
 				if (method) return method->Invoke<T>(this, type->GetType());
@@ -2650,7 +2586,7 @@ public:
 
 			template <typename T>
 			auto GetComponentInChildren(Class* type) -> T {
-				if (!this) return T();
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentInChildren", { "System.Type" });
 				if (method) return method->Invoke<T>(this, type->GetType());
@@ -2659,7 +2595,7 @@ public:
 
 			template <typename T>
 			auto GetComponentInParent(Class* type) -> T {
-				if (!this) return T();
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentInParent", { "System.Type" });
 				if (method) return method->Invoke<T>(this, type->GetType());
@@ -2668,7 +2604,7 @@ public:
 
 			template <typename T>
 			auto GetComponents(Class* type, bool useSearchTypeAsArrayReturnType = false, bool recursive = false, bool includeInactive = true, bool reverse = false, List<T>* resultList = nullptr) -> std::vector<T> {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("GameObject")->Get<Method>("GetComponentsInternal");
 				if (method) return method->Invoke<Array<T>*>(this, type->GetType(), useSearchTypeAsArrayReturnType, recursive, includeInactive, reverse, resultList)->ToVector();
@@ -2706,14 +2642,13 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Rigidbody")->Get<Method>("get_detectCollisions");
 				if (method) return method->Invoke<bool>(this);
-				throw std::logic_error("nullptr");
+				return false;
 			}
 
 			auto SetDetectCollisions(const bool value) -> void {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Rigidbody")->Get<Method>("set_detectCollisions");
 				if (method) return method->Invoke<void>(this, value);
-				throw std::logic_error("nullptr");
 			}
 
 			auto GetVelocity() -> Vector3 {
@@ -2725,7 +2660,7 @@ public:
 					return vector;
 				}
 				if (method) return method->Invoke<Vector3>(this);
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto SetVelocity(Vector3 value) -> void {
@@ -2733,13 +2668,12 @@ public:
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Rigidbody")->Get<Method>(mode_ == Mode::Mono ? "set_velocity_Injected" : "set_velocity");
 				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &value);
 				if (method) return method->Invoke<void>(this, value);
-				throw std::logic_error("nullptr");
 			}
 		};
 
 		struct Collider : Component {
 			auto GetBounds() -> Bounds {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("Collider")->Get<Method>("get_bounds_Injected");
 				if (method) {
@@ -2753,7 +2687,7 @@ public:
 
 		struct Mesh : UnityObject {
 			auto GetBounds() -> Bounds {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Mesh")->Get<Method>("get_bounds_Injected");
 				if (method) {
@@ -2770,28 +2704,28 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("CapsuleCollider")->Get<Method>("get_center");
 				if (method) return method->Invoke<Vector3>(this);
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto GetDirection() -> Vector3 {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("CapsuleCollider")->Get<Method>("get_direction");
 				if (method) return method->Invoke<Vector3>(this);
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto GetHeightn() -> Vector3 {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("CapsuleCollider")->Get<Method>("get_height");
 				if (method) return method->Invoke<Vector3>(this);
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto GetRadius() -> Vector3 {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("CapsuleCollider")->Get<Method>("get_radius");
 				if (method) return method->Invoke<Vector3>(this);
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
@@ -2800,20 +2734,20 @@ public:
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("BoxCollider")->Get<Method>("get_center");
 				if (method) return method->Invoke<Vector3>(this);
-				throw std::logic_error("nullptr");
+				return {};
 			}
 
 			auto GetSize() -> Vector3 {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.PhysicsModule.dll")->Get("BoxCollider")->Get<Method>("get_size");
 				if (method) return method->Invoke<Vector3>(this);
-				throw std::logic_error("nullptr");
+				return {};
 			}
 		};
 
 		struct Renderer : Component {
 			auto GetBounds() -> Bounds {
-				if (!this) return {};
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Renderer")->Get<Method>("get_bounds_Injected");
 				if (method) {
@@ -2827,7 +2761,7 @@ public:
 
 		struct Behaviour : public Component {
 			auto GetEnabled() -> bool {
-				if (!this) return false;
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Behaviour")->Get<Method>("get_enabled");
 				if (method) return method->Invoke<bool>(this);
@@ -2835,7 +2769,7 @@ public:
 			}
 
 			auto SetEnabled(const bool value) -> void {
-				if (!this) return;
+				
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Behaviour")->Get<Method>("set_enabled");
 				if (method) return method->Invoke<void>(this, value);
@@ -2938,7 +2872,7 @@ public:
 				if (IsBadReadPtr(this, sizeof(Animator))) return nullptr;
 #endif
 				static Method* method;
-				if (!this) return nullptr;
+				
 				if (!method) method = Get("UnityEngine.AnimationModule.dll")->Get("Animator")->Get<Method>("GetBoneTransform");
 				if (method) return method->Invoke<Transform*>(this, humanBoneId);
 				return nullptr;
@@ -2974,7 +2908,7 @@ public:
 				return 0.0f;
 			}
 
-			static auto SetTimeScale(float value) -> void {
+			static auto SetTimeScale(const float value) -> void {
 				static Method* method;
 				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Time")->Get<Method>("set_timeScale");
 				if (method) return method->Invoke<void>(value);
@@ -2984,7 +2918,7 @@ public:
 		template <typename Return, typename... Args>
 		static auto Invoke(void* address, Args... args) -> Return {
 #if WINDOWS_MODE
-			if (address != nullptr && !IsBadCodePtr(FARPROC(address))) return ((Return(*)(Args...))(address))(args...);
+			if (address != nullptr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
 #elif LINUX_MODE || ANDROID_MODE
 			if (address != nullptr) return ((Return(*)(Args...))(address))(args...);
 #endif
