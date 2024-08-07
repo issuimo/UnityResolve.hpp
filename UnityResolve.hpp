@@ -1855,11 +1855,6 @@ public:
 			}
 
 			auto ToVector() -> std::vector<T> {
-#if WINDOWS_MODE
-				if (IsBadReadPtr(this, sizeof(Array))) return {};
-				if (IsBadReadPtr(vector, sizeof(void*))) return {};
-#endif
-				
 				std::vector<T> rs{};
 				rs.reserve(this->max_length);
 				for (auto i = 0; i < this->max_length; i++) rs.push_back(this->At(i));
@@ -2868,9 +2863,6 @@ public:
 			};
 
 			auto GetBoneTransform(const HumanBodyBones humanBoneId) -> Transform* {
-#if WINDOWS_MODE
-				if (IsBadReadPtr(this, sizeof(Animator))) return nullptr;
-#endif
 				static Method* method;
 				
 				if (!method) method = Get("UnityEngine.AnimationModule.dll")->Get("Animator")->Get<Method>("GetBoneTransform");
