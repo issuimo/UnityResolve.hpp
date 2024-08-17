@@ -7,6 +7,7 @@
 
 #if WINDOWS_MODE || LINUX_MODE
 #include <format>
+#include <numbers>
 #include <ranges>
 #include <regex>
 #endif
@@ -571,7 +572,7 @@ private:
 				[](void* ptr, std::vector<Assembly*>& v) {
 					if (ptr == nullptr) return;
 
-					Assembly* assembly = new Assembly{ .address = ptr };
+					auto assembly = new Assembly{ .address = ptr };
 					void* image;
 					try {
 						image = Invoke<void*>("mono_assembly_get_image", ptr);
@@ -852,7 +853,7 @@ public:
 			}
 
 			auto ToVectors(Vector3* m_pForward, Vector3* m_pRight, Vector3* m_pUp) const -> void {
-				constexpr auto m_fDeg2Rad = static_cast<float>(3.1415926) / 180.F;
+				constexpr auto m_fDeg2Rad = std::numbers::pi_v<float> / 180.F;
 
 				const auto m_fSinX = sinf(x * m_fDeg2Rad);
 				const auto m_fCosX = cosf(x * m_fDeg2Rad);
@@ -1107,7 +1108,7 @@ public:
 			}
 
 			auto Euler(float m_fX, float m_fY, float m_fZ) -> Quaternion {
-				constexpr auto m_fDeg2Rad = static_cast<float>(3.1415926) / 180.F;
+				constexpr auto m_fDeg2Rad = std::numbers::pi_v<float> / 180.F;
 
 				m_fX = m_fX * m_fDeg2Rad * 0.5F;
 				m_fY = m_fY * m_fDeg2Rad * 0.5F;
@@ -1138,12 +1139,12 @@ public:
 				const auto m_fDist = (x * x) + (y * y) + (z * z) + (w * w);
 
 				if (const auto m_fTest = x * w - y * z; m_fTest > 0.4995F * m_fDist) {
-					m_vEuler.x = static_cast<float>(3.1415926) * 0.5F;
+					m_vEuler.x = std::numbers::pi_v<float> * 0.5F;
 					m_vEuler.y = 2.F * atan2f(y, x);
 					m_vEuler.z = 0.F;
 				}
 				else if (m_fTest < -0.4995F * m_fDist) {
-					m_vEuler.x = static_cast<float>(3.1415926) * -0.5F;
+					m_vEuler.x = std::numbers::pi_v<float> * -0.5F;
 					m_vEuler.y = -2.F * atan2f(y, x);
 					m_vEuler.z = 0.F;
 				}
@@ -1153,7 +1154,7 @@ public:
 					m_vEuler.z = atan2f(2.F * w * z + 2.F * x * y, 1.F - 2.F * (z * z + x * x));
 				}
 
-				constexpr auto m_fRad2Deg = 180.F / static_cast<float>(3.1415926);
+				constexpr auto m_fRad2Deg = 180.F / std::numbers::pi_v<float>;
 				m_vEuler.x *= m_fRad2Deg;
 				m_vEuler.y *= m_fRad2Deg;
 				m_vEuler.z *= m_fRad2Deg;
@@ -1808,7 +1809,7 @@ public:
 			}*bounds{ nullptr };
 
 			std::uintptr_t           max_length{ 0 };
-			__declspec(align(8)) T** vector {};
+			T** vector {};
 
 			auto GetData() -> uintptr_t { return reinterpret_cast<uintptr_t>(&vector); }
 
@@ -2261,22 +2262,17 @@ public:
 			auto GetPosition() -> Vector3 {
 				static Method* method;
 				
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_position_Injected" : "get_position");
-				if (mode_ == Mode::Mono && method) {
-					const Vector3 vec3{};
-					method->Invoke<void>(this, &vec3);
-					return vec3;
-				}
-				if (method) return method->Invoke<Vector3>(this);
-				return {};
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_position_Injected");
+				const Vector3 vec3{};
+				method->Invoke<void>(this, &vec3);
+				return vec3;
 			}
 
 			auto SetPosition(const Vector3& position) -> void {
 				static Method* method;
 				
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "set_position_Injected" : "set_position");
-				if (mode_ == Mode::Mono && method) return method->Invoke<void>(this, &position);
-				if (method) return method->Invoke<void>(this, position);
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("set_position_Injected");
+				return method->Invoke<void>(this, &position);
 			}
 
 			auto GetRight() -> Vector3 {
@@ -2390,14 +2386,10 @@ public:
 			auto GetLocalScale() -> Vector3 {
 				static Method* method;
 				
-				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>(mode_ == Mode::Mono ? "get_localScale_Injected" : "get_localScale");
-				if (mode_ == Mode::Mono && method) {
-					const Vector3 vec3{};
-					method->Invoke<void>(this, &vec3);
-					return vec3;
-				}
-				if (method) return method->Invoke<Vector3>(this);
-				return {};
+				if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Transform")->Get<Method>("get_localScale_Injected");
+				const Vector3 vec3{};
+				method->Invoke<void>(this, &vec3);
+				return vec3;
 			}
 
 			auto SetLocalScale(const Vector3& position) -> void {
