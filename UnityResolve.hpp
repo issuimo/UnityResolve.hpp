@@ -2899,6 +2899,22 @@ public:
 			}
 		};
 
+	        struct Screen {
+	            static auto get_width() -> Int32 {
+	                static Method *method;
+	                if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Screen")->Get<Method>("get_width");
+	                if (method) return method->Invoke<int32_t>();
+	                return 0;
+	            }
+	
+	            static auto get_height() -> Int32 {
+	                static Method *method;
+	                if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Screen")->Get<Method>("get_height");
+	                if (method) return method->Invoke<int32_t>();
+	                return 0;
+	            }
+	        };
+
 		template <typename Return, typename... Args>
 		static auto Invoke(void* address, Args... args) -> Return {
 #if WINDOWS_MODE
