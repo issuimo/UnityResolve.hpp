@@ -1,9 +1,33 @@
 #ifndef UNITYRESOLVE_HPP
 #define UNITYRESOLVE_HPP
 
-#define WINDOWS_MODE 1 // 如果需要请改为 1 | 1 if you need
+// ============================== 自动检测当前环境 ==============================
+
+#if defined(_WIN32) || defined(_WIN64)
+#define WINDOWS_MODE 1
+#else
+#define WINDOWS_MODE 0
+#endif
+
+#if defined(__ANDROID__)
+#define ANDROID_MODE 1
+#else
 #define ANDROID_MODE 0
+#endif
+
+#if defined(__linux__) && !defined(__ANDROID__)
+#define LINUX_MODE 1
+#else
 #define LINUX_MODE 0
+#endif
+
+// ============================== 强制设置当前执行环境 ==============================
+
+// #define WINDOWS_MODE 0
+// #define ANDROID_MODE 1 // 设置运行环境
+// #define LINUX_MODE 0
+
+// ============================== 导入对应环境依赖 ==============================
 
 #if WINDOWS_MODE || LINUX_MODE
 #include <format>
@@ -2898,6 +2922,22 @@ public:
 				if (method) return method->Invoke<void>(value);
 			}
 		};
+
+	        struct Screen {
+	            static auto get_width() -> Int32 {
+	                static Method *method;
+	                if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Screen")->Get<Method>("get_width");
+	                if (method) return method->Invoke<int32_t>();
+	                return 0;
+	            }
+	
+	            static auto get_height() -> Int32 {
+	                static Method *method;
+	                if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Screen")->Get<Method>("get_height");
+	                if (method) return method->Invoke<int32_t>();
+	                return 0;
+	            }
+	        };
 
 		template <typename Return, typename... Args>
 		static auto Invoke(void* address, Args... args) -> Return {
