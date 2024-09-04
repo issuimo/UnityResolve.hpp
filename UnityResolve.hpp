@@ -188,12 +188,23 @@ public:
 		auto SetStaticValue(T* value) const -> void {
 			if (!static_field) return;
 			if (mode_ == Mode::Il2Cpp) return Invoke<void, void*, T*>("il2cpp_field_static_set_value", address, value);
+			else
+			{
+				void* VTable = Invoke<void*>("mono_class_vtable", pDomain, klass->address);
+				return Invoke<void, void*, void*, T*>("mono_field_static_set_value", VTable, address, value);
+
+			}
 		}
 
 		template <typename T>
 		auto GetStaticValue(T* value) const -> void {
 			if (!static_field) return;
 			if (mode_ == Mode::Il2Cpp) return Invoke<void, void*, T*>("il2cpp_field_static_get_value", address, value);
+			else
+			{
+				void* VTable = Invoke<void*>("mono_class_vtable", pDomain, klass->address);
+				return Invoke<void, void*, void*, T*>("mono_field_static_get_value", VTable, address, value);
+			}
 		}
 
 		template <typename T, typename C>
@@ -708,7 +719,12 @@ private:
 					if ((field = Invoke<void*>("mono_class_get_fields", pKlass, &iter))) {
 						const auto pField = new Field{ .address = field, .name = Invoke<const char*>("mono_field_get_name", field), .type = new Type{.address = Invoke<void*>("mono_field_get_type", field)}, .klass = klass, .offset = Invoke<int>("mono_field_get_offset", field), .static_field = false, .vTable = nullptr };
 						int        tSize{};
-						pField->static_field = pField->offset <= 0;
+						/*pField->static_field = pField->offset <= 0;*/
+						int flags = Invoke<int>("mono_field_get_flags", field);
+						if (flags & 0x10)//0x10=FIELD_ATTRIBUTE_STATIC
+						{
+							pField->static_field = true;
+						}
 						pField->type->name = Invoke<const char*>("mono_type_get_name", pField->type->address);
 						pField->type->size = Invoke<int>("mono_type_size", pField->type->address, &tSize);
 						klass->fields.push_back(pField);
