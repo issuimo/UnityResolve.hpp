@@ -231,6 +231,9 @@ public:
 		};
 	};
 
+	template <typename Return, typename... Args>
+	using MethodPointer = Return(UNITY_CALLING_CONVENTION*)(Args...);
+
 	struct Method final {
 		void* address;
 		std::string  name;
@@ -251,11 +254,7 @@ public:
 		auto Invoke(Args... args) -> Return {
 
 			Compile();
-#if WINDOWS_MODE
 			if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
-#else
-			if (function) return reinterpret_cast<Return(UNITY_CALLING_CONVENTION*)(Args...)>(function)(args...);
-#endif
 			return Return();
 		}
 
@@ -264,33 +263,22 @@ public:
 			if (address && !function && mode_ == Mode::Mono) function = UnityResolve::Invoke<void*>("mono_compile_method", address);
 		}
 
-		template <typename Return, typename Obj, typename... Args>
+		template <typename Return, typename Obj = void, typename... Args>
 		auto RuntimeInvoke(Obj* obj, Args... args) -> Return {
-
-			void* exc{};
-			void* argArray[sizeof...(Args) + 1];
-			if (sizeof...(Args) > 0) {
-				size_t index = 0;
-				((argArray[index++] = static_cast<void*>(&args)), ...);
-			}
+			void* argArray[sizeof...(Args)] = { static_cast<void*>(&args)... };
 
 			if (mode_ == Mode::Il2Cpp) {
 				if constexpr (std::is_void_v<Return>) {
-					UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc);
+					UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, sizeof...(Args) ? argArray : nullptr, nullptr);
 					return;
-				}
-				else return *static_cast<Return*>(UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, argArray, exc));
+				} else return Unbox<Return>(Invoke<void*>("il2cpp_runtime_invoke", address, obj, sizeof...(Args) ? argArray : nullptr, nullptr));
 			}
 
 			if constexpr (std::is_void_v<Return>) {
-				UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc);
+				UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, sizeof...(Args) ? argArray : nullptr, nullptr);
 				return;
-			}
-			else return *static_cast<Return*>(UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, argArray, exc));
+			} else return Unbox<Return>(Invoke<void*>("mono_runtime_invoke", address, obj, sizeof...(Args) ? argArray : nullptr, nullptr));
 		}
-
-		template <typename Return, typename... Args>
-		using MethodPointer = Return(UNITY_CALLING_CONVENTION*)(Args...);
 
 		template <typename Return, typename... Args>
 		auto Cast() -> MethodPointer<Return, Args...> {
@@ -310,6 +298,36 @@ public:
 			}
 			return nullptr;
 		}
+
+		template <typename T>
+		T Unbox(void* obj) {
+			if (mode_ == Mode::Il2Cpp) {
+				return static_cast<T>(Invoke<void*>("mono_object_unbox", obj));
+			}
+			else {
+				return static_cast<T>(Invoke<void*>("il2cpp_object_unbox", obj));
+			}
+		}
+	};
+
+	class AssemblyLoad {
+	public:
+		AssemblyLoad(const std::string path, std::string namespaze = "MonoCsharp", std::string className = "Inject", std::string desc = "MonoCsharp.Inject:Load()") {
+			if (mode_ == Mode::Mono) {
+				assembly = Invoke<void*>("mono_domain_assembly_open", pDomain, path.data());
+				image = Invoke<void*>("mono_assembly_get_image", assembly);
+				klass = Invoke<void*>("mono_class_from_name", image, namespaze.data(), className.data());
+				void* entry_point_method_desc = Invoke<void*>("mono_method_desc_new", desc.data(), true);
+				method = Invoke<void*>("mono_method_desc_search_in_class", entry_point_method_desc, klass);
+				Invoke<void>("mono_method_desc_free", entry_point_method_desc);
+				Invoke<void*>("mono_runtime_invoke", method, nullptr, nullptr, nullptr);
+			}
+		}
+
+		void* assembly;
+		void* image;
+		void* klass;
+		void* method;
 	};
 
 	static auto ThreadAttach() -> void {
@@ -765,57 +783,69 @@ private:
 		else {
 			void* iter = nullptr;
 			void* method;
+
 			do {
 				try {
 					if ((method = Invoke<void*>("mono_class_get_methods", pKlass, &iter))) {
 						const auto signature = Invoke<void*>("mono_method_signature", method);
-						int        fFlags{};
+						if (!signature) continue;
+
+						int fFlags{};
 						const auto pMethod = new Method{};
 						pMethod->address = method;
-						char** names;
+
+						char** names = nullptr;
 						try {
 							pMethod->name = Invoke<const char*>("mono_method_get_name", method);
 							pMethod->klass = klass;
-							pMethod->return_type = new Type{ .address = Invoke<void*>("mono_signature_get_return_type", method), };
+							pMethod->return_type = new Type{ .address = Invoke<void*>("mono_signature_get_return_type", signature) };
+
 							pMethod->flags = Invoke<int>("mono_method_get_flags", method, &fFlags);
-							int tSize{};
 							pMethod->static_function = pMethod->flags & 0x10;
+
 							pMethod->return_type->name = Invoke<const char*>("mono_type_get_name", pMethod->return_type->address);
+							int tSize{};
 							pMethod->return_type->size = Invoke<int>("mono_type_size", pMethod->return_type->address, &tSize);
+
 							klass->methods.push_back(pMethod);
-							names = new char* [Invoke<int>("mono_signature_get_param_count", signature)];
+
+							int param_count = Invoke<int>("mono_signature_get_param_count", signature);
+							names = new char* [param_count];
 							Invoke<void>("mono_method_get_param_names", method, names);
-						}
-						catch (...) {
-							return;
+						} catch (const std::exception& e) {
+							continue;
 						}
 
 						void* mIter = nullptr;
 						void* mType;
-						auto  iname = 0;
+						int iname = 0;
+
 						do {
 							try {
 								if ((mType = Invoke<void*>("mono_signature_get_params", signature, &mIter))) {
 									int t_size{};
 									try {
-										pMethod->args.push_back(new Method::Arg{ names[iname], new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size)} });
+										pMethod->args.push_back(new Method::Arg{
+											names[iname],
+											new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size) }
+											});
 									}
-									catch (...) {
-										// USE SEH!!!
+									catch (const std::exception& e) {
+										
 									}
 									iname++;
 								}
 							}
-							catch (...) {
-								return;
+							catch (const std::exception& e) {
+								break;
 							}
 						} while (mType);
 					}
-				}
-				catch (...) {
+				} catch (const std::exception& e) {
 					return;
 				}
 			} while (method);
+
 		}
 	}
 
