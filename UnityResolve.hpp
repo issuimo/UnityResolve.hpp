@@ -312,10 +312,13 @@ public:
 
 	class AssemblyLoad {
 	public:
-		AssemblyLoad(const std::string path, std::string namespaze = "MonoCsharp", std::string className = "Inject", std::string desc = "MonoCsharp.Inject:Load()") {
+		AssemblyLoad(const std::string path, std::string namespaze = "", std::string className = "", std::string desc = "") {
 			if (mode_ == Mode::Mono) {
 				assembly = Invoke<void*>("mono_domain_assembly_open", pDomain, path.data());
 				image = Invoke<void*>("mono_assembly_get_image", assembly);
+				if (namespaze.empty() || className.empty() || desc.empty()) {
+					return;
+				}
 				klass = Invoke<void*>("mono_class_from_name", image, namespaze.data(), className.data());
 				void* entry_point_method_desc = Invoke<void*>("mono_method_desc_new", desc.data(), true);
 				method = Invoke<void*>("mono_method_desc_search_in_class", entry_point_method_desc, klass);
@@ -812,7 +815,7 @@ private:
 							int param_count = Invoke<int>("mono_signature_get_param_count", signature);
 							names = new char* [param_count];
 							Invoke<void>("mono_method_get_param_names", method, names);
-						} catch (const std::exception& e) {
+						} catch (...) {
 							continue;
 						}
 
@@ -830,18 +833,18 @@ private:
 											new Type{.address = mType, .name = Invoke<const char*>("mono_type_get_name", mType), .size = Invoke<int>("mono_type_size", mType, &t_size) }
 											});
 									}
-									catch (const std::exception& e) {
+									catch (...) {
 										
 									}
 									iname++;
 								}
 							}
-							catch (const std::exception& e) {
+							catch (...) {
 								break;
 							}
 						} while (mType);
 					}
-				} catch (const std::exception& e) {
+				} catch (...) {
 					return;
 				}
 			} while (method);
