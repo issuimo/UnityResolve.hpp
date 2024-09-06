@@ -55,6 +55,7 @@
 > - [X] FieldInfo
 > - More...
 > ### 功能 (Function)
+> - [X] Moono注入 (Mono Inject)
 > - [X] DumpToFile
 > - [X] 附加线程 (Thread Attach / Detach)
 > - [X] 修改静态变量值 (Modifying the value of a static variable)
@@ -98,6 +99,12 @@
 > 
 > // C# GC Detach
 > UnityResolve::ThreadDetach();
+> ```
+
+#### Mono注入 (Mono Inject)
+> ``` c++
+> I::AssemblyLoad assembly("./MonoCsharp.dll");
+> I::AssemblyLoad assembly("./MonoCsharp.dll", "MonoCsharp", "Inject", "MonoCsharp.Inject:Load()");
 > ```
 
 #### 获取函数地址(变量偏移) 及调用(修改/获取) (Get the function address (variable offset) and invoke (modify/get))
