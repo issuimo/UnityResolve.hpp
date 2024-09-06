@@ -137,10 +137,10 @@
 > // Invoke<return type>(args...);
 >
 > // Cast<return type, args...>(void);
-> // Cast(IM::MethodPointer<return type, args...>&);
-> const IM::MethodPointer<void, int, bool> ptr = method2->Cast<void, int, bool>();
+> // Cast(UnityResolve::MethodPointer<return type, args...>&);
+> const UnityResolve::MethodPointer<void, int, bool> ptr = method2->Cast<void, int, bool>();
 > ptr(114514, true);
-> IM::MethodPointer<void, int, bool> add;
+> UnityResolve::MethodPointer<void, int, bool> add;
 > ptr = method1->Cast(add);
 >
 > ```
