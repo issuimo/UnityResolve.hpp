@@ -103,8 +103,8 @@
 
 #### Mono注入 (Mono Inject)
 > ``` c++
-> I::AssemblyLoad assembly("./MonoCsharp.dll");
-> I::AssemblyLoad assembly("./MonoCsharp.dll", "MonoCsharp", "Inject", "MonoCsharp.Inject:Load()");
+> UnityResolve::AssemblyLoad assembly("./MonoCsharp.dll");
+> UnityResolve::AssemblyLoad assembly("./MonoCsharp.dll", "MonoCsharp", "Inject", "MonoCsharp.Inject:Load()");
 > ```
 
 #### 获取函数地址(变量偏移) 及调用(修改/获取) (Get the function address (variable offset) and invoke (modify/get))
@@ -140,8 +140,12 @@
 > // Cast(UnityResolve::MethodPointer<return type, args...>&);
 > const UnityResolve::MethodPointer<void, int, bool> ptr = method2->Cast<void, int, bool>();
 > ptr(114514, true);
+
 > UnityResolve::MethodPointer<void, int, bool> add;
 > ptr = method1->Cast(add);
+>
+> std::function<void(int, bool)> add2;
+> method->Cast(add2);
 >
 > ```
 
