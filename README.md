@@ -55,7 +55,7 @@
 > - [X] FieldInfo
 > - More...
 > ### 功能 (Function)
-> - [X] Moono注入 (Mono Inject)
+> - [X] Mono注入 (Mono Inject)
 > - [X] DumpToFile
 > - [X] 附加线程 (Thread Attach / Detach)
 > - [X] 修改静态变量值 (Modifying the value of a static variable)
