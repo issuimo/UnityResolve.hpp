@@ -43,6 +43,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <functional>
 
 #if WINDOWS_MODE
 #include <windows.h>
@@ -290,6 +291,17 @@ public:
 
 		template <typename Return, typename... Args>
 		auto Cast(MethodPointer<Return, Args...>& ptr) -> MethodPointer<Return, Args...> {
+
+			Compile();
+			if (function) {
+				ptr = reinterpret_cast<MethodPointer<Return, Args...>>(function);
+				return reinterpret_cast<MethodPointer<Return, Args...>>(function);
+			}
+			return nullptr;
+		}
+
+		template <typename Return, typename... Args>
+		auto Cast(std::function<Return(Args...)>& ptr) -> std::function<Return(Args...)> {
 
 			Compile();
 			if (function) {
