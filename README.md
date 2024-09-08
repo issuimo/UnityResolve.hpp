@@ -140,7 +140,7 @@
 > // Cast(UnityResolve::MethodPointer<return type, args...>&);
 > const UnityResolve::MethodPointer<void, int, bool> ptr = method2->Cast<void, int, bool>();
 > ptr(114514, true);
-
+>
 > UnityResolve::MethodPointer<void, int, bool> add;
 > ptr = method1->Cast(add);
 >
