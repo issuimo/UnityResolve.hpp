@@ -161,7 +161,7 @@ public:
 		auto FindObjectsByType() -> std::vector<T> {
 			static Method* pMethod;
 
-			if (!pMethod) pMethod = UnityResolve::Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>(mode_ == Mode::Il2Cpp ? "FindObjectsOfType" : "FindObjectsOfTypeAll", { "System.Type" });
+			if (!pMethod) pMethod = UnityResolve::Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("FindObjectsOfType", { "System.Type" });
 			if (!objType) objType = this->GetType();
 
 			if (pMethod && objType) if (auto array = pMethod->Invoke<UnityType::Array<T>*>(objType)) return array->ToVector();
