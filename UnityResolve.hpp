@@ -45,6 +45,10 @@
 #include <vector>
 #include <functional>
 
+#ifdef USE_GLM
+#include <glm/glm.hpp>
+#endif
+
 #if WINDOWS_MODE
 #include <windows.h>
 #undef GetObject
@@ -272,13 +276,15 @@ public:
 				if constexpr (std::is_void_v<Return>) {
 					UnityResolve::Invoke<void*>("il2cpp_runtime_invoke", address, obj, sizeof...(Args) ? argArray : nullptr, nullptr);
 					return;
-				} else return Unbox<Return>(Invoke<void*>("il2cpp_runtime_invoke", address, obj, sizeof...(Args) ? argArray : nullptr, nullptr));
+				}
+				else return Unbox<Return>(Invoke<void*>("il2cpp_runtime_invoke", address, obj, sizeof...(Args) ? argArray : nullptr, nullptr));
 			}
 
 			if constexpr (std::is_void_v<Return>) {
 				UnityResolve::Invoke<void*>("mono_runtime_invoke", address, obj, sizeof...(Args) ? argArray : nullptr, nullptr);
 				return;
-			} else return Unbox<Return>(Invoke<void*>("mono_runtime_invoke", address, obj, sizeof...(Args) ? argArray : nullptr, nullptr));
+			}
+			else return Unbox<Return>(Invoke<void*>("mono_runtime_invoke", address, obj, sizeof...(Args) ? argArray : nullptr, nullptr));
 		}
 
 		template <typename Return, typename... Args>
@@ -827,7 +833,8 @@ private:
 							int param_count = Invoke<int>("mono_signature_get_param_count", signature);
 							names = new char* [param_count];
 							Invoke<void>("mono_method_get_param_names", method, names);
-						} catch (...) {
+						}
+						catch (...) {
 							continue;
 						}
 
@@ -846,7 +853,7 @@ private:
 											});
 									}
 									catch (...) {
-										
+
 									}
 									iname++;
 								}
@@ -856,7 +863,8 @@ private:
 							}
 						} while (mType);
 					}
-				} catch (...) {
+				}
+				catch (...) {
 					return;
 				}
 			} while (method);
@@ -873,7 +881,13 @@ public:
 		using Char = wchar_t;
 		using Int16 = std::int16_t;
 		using Byte = std::uint8_t;
+#ifndef USE_GLM
 		struct Vector3;
+		struct Vector4;
+		struct Vector2;
+		struct Quaternion;
+		struct Matrix4x4;
+#endif
 		struct Camera;
 		struct Transform;
 		struct Component;
@@ -883,15 +897,11 @@ public:
 		struct Physics;
 		struct GameObject;
 		struct Collider;
-		struct Vector4;
-		struct Vector2;
-		struct Quaternion;
 		struct Bounds;
 		struct Plane;
 		struct Ray;
 		struct Rect;
 		struct Color;
-		struct Matrix4x4;
 		template <typename T>
 		struct Array;
 		struct String;
@@ -917,6 +927,7 @@ public:
 		struct Time;
 		struct RaycastHit;
 
+#ifndef USE_GLM
 		struct Vector3 {
 			float x, y, z;
 
@@ -1033,7 +1044,11 @@ public:
 
 			auto operator ==(const Vector3 x) const -> bool { return this->x == x.x && this->y == x.y && this->z == x.z; }
 		};
+#else
+		using Vector3 = glm::vec3;
+#endif
 
+#ifndef USE_GLM
 		struct Vector2 {
 			float x, y;
 
@@ -1100,7 +1115,11 @@ public:
 
 			auto operator ==(const Vector2 x) const -> bool { return this->x == x.x && this->y == x.y; }
 		};
+#else
+		using Vector2 = glm::vec2;
+#endif
 
+#ifndef USE_GLM
 		struct Vector4 {
 			float x, y, z, w;
 
@@ -1179,7 +1198,11 @@ public:
 
 			auto operator ==(const Vector4 x) const -> bool { return this->x == x.x && this->y == x.y && this->z == x.z && this->w == x.w; }
 		};
+#else
+		using Vector4 = glm::vec4;
+#endif
 
+#ifndef USE_GLM
 		struct Quaternion {
 			float x, y, z, w;
 
@@ -1321,6 +1344,9 @@ public:
 
 			auto operator ==(const Quaternion x) const -> bool { return this->x == x.x && this->y == x.y && this->z == x.z && this->w == x.w; }
 		};
+#else
+		using Quaternion = glm::quat;
+#endif
 
 		struct Bounds {
 			Vector3 m_vCenter;
@@ -1369,6 +1395,7 @@ public:
 			}
 		};
 
+#ifndef USE_GLM
 		struct Matrix4x4 {
 			float m[4][4] = { {0} };
 
@@ -1376,6 +1403,9 @@ public:
 
 			auto operator[](const int i) -> float* { return m[i]; }
 		};
+#else
+		using Matrix4x4 = glm::mat4x4;
+#endif
 
 		struct Object {
 			union {
