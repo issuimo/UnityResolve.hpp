@@ -140,7 +140,7 @@ public:
 		auto GetValue(void* obj, const std::string& name) -> RType { return *reinterpret_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset); }
 
 		template <typename RType>
-		auto SetValue(void* obj, const std::string& name, RType value) -> void { return *reinterpret_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset) = value; }
+		auto SetValue(void* obj, const std::string& name, RType value) -> void { *reinterpret_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset) = value; }
 
 		// UnityType::CsType*
 		[[nodiscard]] auto GetType() -> void* {
