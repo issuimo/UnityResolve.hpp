@@ -18,6 +18,8 @@
 > - [X] Windows
 > - [X] Android
 > - [X] Linux
+> - [ ] IOS
+> - [ ] HarmonyOS
 > ### 类型 (Type)
 > - [X] Camera
 > - [X] Transform
