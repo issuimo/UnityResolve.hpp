@@ -5,8 +5,8 @@
 > > - [Phasmophobia Cheat](https://github.com/issuimo/PhasmophobiaCheat/tree/main)
 > > - [Sausage Man](https://github.com/issuimo/SausageManCheat)
 
-> 如果是MSVC编译器请打开SEH选项 \
-> If using the MSVC compiler, please open the SEH option. \
+> 如果编译器支持请打开SEH选项 \
+> If your compiler supports it, please enable SEH option. \
 > 对于高版本安卓程序崩溃的可能问题请参阅 [link](https://github.com/issuimo/UnityResolve.hpp/issues/11) \
 > For potential issues related to crashes in higher version Android programs, please refer to the link [link](https://github.com/issuimo/UnityResolve.hpp/issues/11)
 <hr>
