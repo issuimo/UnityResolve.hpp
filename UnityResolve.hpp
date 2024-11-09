@@ -15,10 +15,22 @@
 #define ANDROID_MODE 0
 #endif
 
+#if defined(TARGET_OS_IOS)
+#define IOS_MODE 1
+#else
+#define IOS_MODE 0
+#endif
+
 #if defined(__linux__) && !defined(__ANDROID__)
 #define LINUX_MODE 1
 #else
 #define LINUX_MODE 0
+#endif
+
+#if defined(__harmony__) && !defined(_HARMONYOS)
+#define HARMONYOS_MODE 1
+#else
+#define HARMONYOS_MODE 0
 #endif
 
 // ============================== 强制设置当前执行环境 ==============================
@@ -26,14 +38,20 @@
 // #define WINDOWS_MODE 0
 // #define ANDROID_MODE 1 // 设置运行环境
 // #define LINUX_MODE 0
+// #define IOS_MODE 0
+// #define HARMONYOS_MODE 0
 
 // ============================== 导入对应环境依赖 ==============================
 
-#if WINDOWS_MODE || LINUX_MODE
+#if WINDOWS_MODE || LINUX_MODE || IOS_MODE
 #include <format>
 #include <numbers>
 #include <ranges>
 #include <regex>
+#endif
+
+#if IOS_MODE
+#include <algorithm>
 #endif
 
 #include <codecvt>
@@ -60,7 +78,7 @@
 #elif _WIN32
 #define UNITY_CALLING_CONVENTION __cdecl
 #endif
-#elif ANDROID_MODE || LINUX_MODE
+#elif ANDROID_MODE || LINUX_MODE || IOS_MODE || HARMONYOS_MODE
 #include <locale>
 #include <dlfcn.h>
 #define UNITY_CALLING_CONVENTION
@@ -140,7 +158,13 @@ public:
 		auto GetValue(void* obj, const std::string& name) -> RType { return *reinterpret_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset); }
 
 		template <typename RType>
+		auto GetValue(void* obj, unsigned int offset) -> RType { return *reinterpret_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + offset); }
+
+		template <typename RType>
 		auto SetValue(void* obj, const std::string& name, RType value) -> void { *reinterpret_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + Get<Field>(name)->offset) = value; }
+
+		template <typename RType>
+		auto SetValue(void* obj, unsigned int offset, RType value) -> RType { *reinterpret_cast<RType*>(reinterpret_cast<uintptr_t>(obj) + offset) = value; }
 
 		// UnityType::CsType*
 		[[nodiscard]] auto GetType() -> void* {
@@ -385,7 +409,7 @@ public:
 		}
 	}
 
-#if WINDOWS_MODE || LINUX_MODE /*__cplusplus >= 202002L*/
+#if WINDOWS_MODE || LINUX_MODE || IOS_MODE /*__cplusplus >= 202002L*/
 	static auto DumpToFile(const std::string path) -> void {
 		std::ofstream io(path + "dump.cs", std::fstream::out);
 		if (!io) return;
@@ -591,7 +615,7 @@ public:
 	static auto Invoke(const std::string& funcName, Args... args) -> Return {
 #if WINDOWS_MODE
 		if (!address_.contains(funcName) || !address_[funcName]) address_[funcName] = static_cast<void*>(GetProcAddress(static_cast<HMODULE>(hmodule_), funcName.c_str()));
-#elif  ANDROID_MODE || LINUX_MODE
+#elif  ANDROID_MODE || LINUX_MODE || IOS_MODE || HARMONYOS_MODE
 		if (address_.find(funcName) == address_.end() || !address_[funcName]) {
 			address_[funcName] = dlsym(hmodule_, funcName.c_str());
 		}
@@ -859,7 +883,6 @@ private:
 					return;
 				}
 			} while (method);
-
 		}
 	}
 
@@ -878,6 +901,12 @@ public:
 		struct Vector2;
 		struct Quaternion;
 		struct Matrix4x4;
+#else
+		using Vector3 = glm::vec3;
+		using Vector2 = glm::vec2;
+		using Vector4 = glm::vec4;
+		using Quaternion = glm::quat;
+		using Matrix4x4 = glm::mat4x4;
 #endif
 		struct Camera;
 		struct Transform;
@@ -1035,8 +1064,6 @@ public:
 
 			auto operator ==(const Vector3 x) const -> bool { return this->x == x.x && this->y == x.y && this->z == x.z; }
 		};
-#else
-		using Vector3 = glm::vec3;
 #endif
 
 #ifndef USE_GLM
@@ -1106,8 +1133,6 @@ public:
 
 			auto operator ==(const Vector2 x) const -> bool { return this->x == x.x && this->y == x.y; }
 		};
-#else
-		using Vector2 = glm::vec2;
 #endif
 
 #ifndef USE_GLM
@@ -1189,8 +1214,6 @@ public:
 
 			auto operator ==(const Vector4 x) const -> bool { return this->x == x.x && this->y == x.y && this->z == x.z && this->w == x.w; }
 		};
-#else
-		using Vector4 = glm::vec4;
 #endif
 
 #ifndef USE_GLM
@@ -1335,8 +1358,6 @@ public:
 
 			auto operator ==(const Quaternion x) const -> bool { return this->x == x.x && this->y == x.y && this->z == x.z && this->w == x.w; }
 		};
-#else
-		using Quaternion = glm::quat;
 #endif
 
 		struct Bounds {
@@ -1394,8 +1415,6 @@ public:
 
 			auto operator[](const int i) -> float* { return m[i]; }
 		};
-#else
-		using Matrix4x4 = glm::mat4x4;
 #endif
 
 		struct Object {
@@ -3025,7 +3044,7 @@ public:
 		static auto Invoke(void* address, Args... args) -> Return {
 #if WINDOWS_MODE
 			if (address != nullptr) return reinterpret_cast<Return(*)(Args...)>(address)(args...);
-#elif LINUX_MODE || ANDROID_MODE
+#elif LINUX_MODE || ANDROID_MODE || IOS_MODE || HARMONYOS_MODE
 			if (address != nullptr) return ((Return(*)(Args...))(address))(args...);
 #endif
 			return Return();
@@ -3038,4 +3057,4 @@ private:
 	inline static std::unordered_map<std::string, void*> address_{};
 	inline static void* pDomain{};
 };
-#endif // UNITYRESOLVE_HPP
+#endif // UNITYRESOLVE_HPPs
