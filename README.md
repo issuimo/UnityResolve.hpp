@@ -156,6 +156,11 @@
 > std::function<void(int, bool)> add2;
 > method->Cast(add2);
 >
+> UnityResolve::Variable<Vector3, Player> syncPos;
+> syncPos.Init(pClass->Get<UnityResolve::Field>("syncPos"));
+> auto pos = syncPos[playerInstance];
+> auto pos = syncPos.Get(playerInstance);
+>
 > ```
 
 #### 转存储到文件 (DumpToFile)
