@@ -156,7 +156,7 @@
 > std::function<void(int, bool)> add2;
 > method->Cast(add2);
 >
-> UnityResolve::Variable<Vector3, Player> syncPos;
+> UnityResolve::Field::Variable<Vector3, Player> syncPos;
 > syncPos.Init(pClass->Get<UnityResolve::Field>("syncPos"));
 > auto pos = syncPos[playerInstance];
 > auto pos = syncPos.Get(playerInstance);
