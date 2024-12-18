@@ -45,7 +45,6 @@
 
 #if WINDOWS_MODE || LINUX_MODE || IOS_MODE
 #include <format>
-#include <numbers>
 #include <ranges>
 #include <regex>
 #endif
@@ -62,6 +61,7 @@
 #include <unordered_map>
 #include <vector>
 #include <functional>
+#include <numbers>
 
 #ifdef USE_GLM
 #include <glm/glm.hpp>
