@@ -2381,6 +2381,20 @@ public:
 				if (method) return method->Invoke<Matrix4x4>(this);
 				return {};
 			}
+
+
+            auto ScreenPointToRay(const Vector2 &position, const Eye eye = Eye::Mono) -> Ray {
+
+                static Method *method;
+                if (!method) method = Get("UnityEngine.CoreModule.dll")->Get("Camera")->Get<Method>(mode_ == Mode::Mono ? "ScreenPointToRay_Injected" : "ScreenPointToRay");
+                if (mode_ == Mode::Mono && method) {
+                    Ray ray{};
+                    method->Invoke<void>(this, position, eye, &ray);
+                    return ray;
+                }
+                if (method) return method->Invoke<Ray>(this, position, eye);
+                return {};
+            }
 		};
 
 		struct Transform : Component {
